@@ -121,46 +121,47 @@ export function TimelineChart({
     if (predIndex === -1) return null;
     const pred = visibleTasks[predIndex];
 
-    let fromX: number, fromY: number, toX: number, toY: number;
     const halfRow = rowHeight / 2;
+    const fromY = predIndex * rowHeight + halfRow;
+    const toY = taskIndex * rowHeight + halfRow;
 
-    switch (dep.type) {
-      case 'FS':
-        fromX = dateToX(pred.end);
-        fromY = predIndex * rowHeight + halfRow;
-        toX = dateToX(task.start);
-        toY = taskIndex * rowHeight + halfRow;
-        break;
-      case 'SS':
-        fromX = dateToX(pred.start);
-        fromY = predIndex * rowHeight + halfRow;
-        toX = dateToX(task.start);
-        toY = taskIndex * rowHeight + halfRow;
-        break;
-      case 'FF':
-        fromX = dateToX(pred.end);
-        fromY = predIndex * rowHeight + halfRow;
-        toX = dateToX(task.end);
-        toY = taskIndex * rowHeight + halfRow;
-        break;
-      case 'SF':
-        fromX = dateToX(pred.start);
-        fromY = predIndex * rowHeight + halfRow;
-        toX = dateToX(task.end);
-        toY = taskIndex * rowHeight + halfRow;
-        break;
+    // Determine connection points based on link type
+    // "from" = which end of the PREDECESSOR to leave from
+    // "to"   = which end of the SUCCESSOR to arrive at
+    const fromEnd = dep.type === 'FS' || dep.type === 'FF'; // true = end, false = start
+    const toEnd   = dep.type === 'SF' || dep.type === 'FF'; // true = end, false = start
+
+    const fromX = fromEnd ? dateToX(pred.end) : dateToX(pred.start);
+    const toX   = toEnd   ? dateToX(task.end)  : dateToX(task.start);
+
+    // Build an orthogonal path with proper routing
+    const margin = 12;
+    const exitX  = fromEnd ? fromX + margin : fromX - margin;
+    const enterX = toEnd   ? toX + margin   : toX - margin;
+
+    let pathD: string;
+    const goingDown = toY > fromY;
+    const midY = goingDown ? fromY + halfRow : fromY - halfRow;
+
+    if ((fromEnd && toX >= fromX + margin) || (!fromEnd && toX <= fromX - margin)) {
+      // Simple: exit, go vertical, enter horizontally
+      pathD = `M${fromX},${fromY} H${exitX} V${toY} H${toX}`;
+    } else {
+      // Need to route around: exit, go halfway down/up, go horizontal, then arrive
+      const routeY = (fromY + toY) / 2;
+      pathD = `M${fromX},${fromY} H${exitX} V${routeY} H${enterX} V${toY} H${toX}`;
     }
 
-    const midX = fromX + 12;
-    const path = fromY < toY
-      ? `M${fromX},${fromY} H${midX} V${toY} H${toX}`
-      : `M${fromX},${fromY} H${midX} V${toY} H${toX}`;
+    // Arrow head points toward the target connection point
+    const arrowDir = toEnd ? 1 : -1; // 1 = pointing right (arriving at end), -1 = pointing left (arriving at start)
+    const ax = toX;
+    const ay = toY;
 
     return (
       <g key={`dep-${task.id}-${dep.predecessorId}-${dep.type}`}>
-        <path d={path} fill="none" stroke="hsl(var(--gantt-link))" strokeWidth={1.5} />
+        <path d={pathD} fill="none" stroke="hsl(var(--gantt-link))" strokeWidth={1.5} />
         <polygon
-          points={`${toX},${toY} ${toX - 5},${toY - 3} ${toX - 5},${toY + 3}`}
+          points={`${ax},${ay} ${ax - arrowDir * 6},${ay - 3.5} ${ax - arrowDir * 6},${ay + 3.5}`}
           fill="hsl(var(--gantt-link))"
         />
       </g>
