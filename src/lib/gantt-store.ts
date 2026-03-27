@@ -26,15 +26,96 @@ export function hasCircularDependency(tasks: GanttTask[], taskId: number, newDep
   return dfs(taskId);
 }
 
+// Schedule tasks based on dependency constraints (topological order)
+export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
+  const result = tasks.map(t => ({ ...t, start: new Date(t.start), end: new Date(t.end) }));
+  const taskMap = new Map(result.map(t => [t.id, t]));
+
+  // Build adjacency: task -> list of successors
+  const successors = new Map<number, number[]>();
+  const inDegree = new Map<number, number>();
+  for (const t of result) {
+    if (!successors.has(t.id)) successors.set(t.id, []);
+    inDegree.set(t.id, t.dependencies.length);
+    for (const dep of t.dependencies) {
+      if (!successors.has(dep.predecessorId)) successors.set(dep.predecessorId, []);
+      successors.get(dep.predecessorId)!.push(t.id);
+    }
+  }
+
+  // Topological sort (Kahn's algorithm)
+  const queue: number[] = [];
+  for (const t of result) {
+    if ((inDegree.get(t.id) || 0) === 0) queue.push(t.id);
+  }
+
+  const order: number[] = [];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    order.push(id);
+    for (const succId of successors.get(id) || []) {
+      inDegree.set(succId, (inDegree.get(succId) || 1) - 1);
+      if (inDegree.get(succId) === 0) queue.push(succId);
+    }
+  }
+
+  // Process in topological order - compute earliest start based on predecessors
+  for (const id of order) {
+    const task = taskMap.get(id)!;
+    if (task.dependencies.length === 0) continue;
+
+    // Only schedule leaf tasks (non-parent), parents get rolled up
+    const isParent = result.some(t => t.parentId === id);
+    if (isParent) continue;
+
+    const duration = getDuration(task.start, task.end);
+    let earliestStart = task.start;
+
+    for (const dep of task.dependencies) {
+      const pred = taskMap.get(dep.predecessorId);
+      if (!pred) continue;
+
+      let constraintDate: Date;
+      switch (dep.type) {
+        case 'FS': // Finish-to-Start: successor starts after predecessor finishes
+          constraintDate = addDays(pred.end, dep.lag);
+          if (constraintDate > earliestStart) earliestStart = constraintDate;
+          break;
+        case 'SS': // Start-to-Start: successor starts when predecessor starts
+          constraintDate = addDays(pred.start, dep.lag);
+          if (constraintDate > earliestStart) earliestStart = constraintDate;
+          break;
+        case 'FF': // Finish-to-Finish: successor finishes when predecessor finishes
+          // successor end = pred.end + lag, so successor start = pred.end + lag - duration
+          constraintDate = addDays(pred.end, dep.lag - duration);
+          if (constraintDate > earliestStart) earliestStart = constraintDate;
+          break;
+        case 'SF': // Start-to-Finish: successor finishes when predecessor starts
+          // successor end = pred.start + lag, so successor start = pred.start + lag - duration
+          constraintDate = addDays(pred.start, dep.lag - duration);
+          if (constraintDate > earliestStart) earliestStart = constraintDate;
+          break;
+      }
+    }
+
+    task.start = earliestStart;
+    task.end = addDays(earliestStart, duration);
+  }
+
+  return result;
+}
+
 // Rollup parent dates from children
 export function rollupParentDates(tasks: GanttTask[]): GanttTask[] {
-  const result = [...tasks];
-  const parentIds = new Set(tasks.filter(t => t.parentId !== null).map(t => t.parentId!));
+  // First schedule dependencies, then rollup parents
+  const scheduled = scheduleDependencies(tasks);
+
+  const parentIds = new Set(scheduled.filter(t => t.parentId !== null).map(t => t.parentId!));
 
   for (const pid of parentIds) {
-    const parent = result.find(t => t.id === pid);
+    const parent = scheduled.find(t => t.id === pid);
     if (!parent) continue;
-    const children = result.filter(t => t.parentId === pid);
+    const children = scheduled.filter(t => t.parentId === pid);
     if (children.length === 0) continue;
 
     const minStart = new Date(Math.min(...children.map(c => c.start.getTime())));
@@ -47,7 +128,7 @@ export function rollupParentDates(tasks: GanttTask[]): GanttTask[] {
     parent.progress = totalDuration > 0 ? Math.round(weightedProgress / totalDuration) : 0;
   }
 
-  return result;
+  return scheduled;
 }
 
 // Flatten tree into ordered list
