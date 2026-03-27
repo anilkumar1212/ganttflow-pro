@@ -12,6 +12,10 @@ export default {
         "2xl": "1400px",
       },
     },
+    fontFamily: {
+      sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+      mono: ['JetBrains Mono', 'monospace'],
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -56,6 +60,21 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        gantt: {
+          header: "hsl(var(--gantt-header))",
+          "header-foreground": "hsl(var(--gantt-header-foreground))",
+          bar: "hsl(var(--gantt-bar))",
+          "bar-progress": "hsl(var(--gantt-bar-progress))",
+          "bar-parent": "hsl(var(--gantt-bar-parent))",
+          milestone: "hsl(var(--gantt-bar-milestone))",
+          "grid-line": "hsl(var(--gantt-grid-line))",
+          today: "hsl(var(--gantt-today))",
+          weekend: "hsl(var(--gantt-weekend))",
+          link: "hsl(var(--gantt-link))",
+          "row-hover": "hsl(var(--gantt-row-hover))",
+          "row-selected": "hsl(var(--gantt-row-selected))",
+          success: "hsl(var(--gantt-success))",
         },
       },
       borderRadius: {
