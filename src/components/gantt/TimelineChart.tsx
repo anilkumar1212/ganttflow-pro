@@ -270,12 +270,17 @@ export function TimelineChart({
                 {/* Bar background */}
                 <rect
                   x={x} y={barY} width={width} height={barHeight} rx={3}
-                  fill="hsl(var(--gantt-bar))"
+                  fill={isCritical ? 'hsl(var(--gantt-critical))' : 'hsl(var(--gantt-bar))'}
                   className="cursor-grab"
                   onMouseDown={e => handleMouseDown(e, task.id, 'move')}
                   onClick={() => onSelectTask(task.id)}
                   onContextMenu={e => onContextMenu(e, task.id)}
                 />
+
+                {/* Critical glow */}
+                {isCritical && (
+                  <rect x={x - 2} y={barY - 2} width={width + 4} height={barHeight + 4} rx={5} fill="none" stroke="hsl(var(--gantt-critical))" strokeWidth={1} strokeOpacity={0.4} />
+                )}
 
                 {/* Progress fill */}
                 <rect
