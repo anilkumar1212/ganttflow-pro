@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { FlatTask, Resource, Dependency, addDays, getDuration } from '@/lib/gantt-types';
+import { CPMResult } from '@/lib/gantt-cpm';
 
 interface TimelineChartProps {
   tasks: FlatTask[];
@@ -9,6 +10,7 @@ interface TimelineChartProps {
   onMoveTask: (id: number, newStart: Date) => void;
   onResizeTask: (id: number, newEnd: Date) => void;
   onContextMenu: (e: React.MouseEvent, taskId: number) => void;
+  cpmResults: Map<number, CPMResult>;
   rowHeight: number;
   dayWidth: number;
 }
