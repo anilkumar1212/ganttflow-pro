@@ -20,8 +20,10 @@ export function GanttChart() {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showResources, setShowResources] = useState(false);
+  const [showCriticalPath, setShowCriticalPath] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: number } | null>(null);
   const [dividerX, setDividerX] = useState(840);
+  const [highlightTaskId, setHighlightTaskId] = useState<number | null>(null);
   const dividerDragging = useRef(false);
 
   const treeScrollRef = useRef<HTMLDivElement>(null);
@@ -64,11 +66,27 @@ export function GanttChart() {
     setTasks(prev => rollupParentDates(updater(prev)));
   }, []);
 
+  // Auto-scroll to newly created task
+  const scrollToTask = useCallback((taskId: number) => {
+    setHighlightTaskId(taskId);
+    setTimeout(() => {
+      const flat = flattenTasks(tasks);
+      const idx = flat.findIndex(t => t.id === taskId);
+      if (idx >= 0 && treeScrollRef.current) {
+        treeScrollRef.current.scrollTop = idx * ROW_HEIGHT;
+      }
+    }, 50);
+    setTimeout(() => setHighlightTaskId(null), 1500);
+  }, [tasks]);
+
   // Task operations
   const addTask = useCallback(() => {
     const maxId = Math.max(0, ...tasks.map(t => t.id));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // Context-aware: if a task is selected, add parallel
+    const selected = selectedTaskId !== null ? tasks.find(t => t.id === selectedTaskId) : null;
     const newTask: GanttTask = {
       id: maxId + 1,
       name: 'New Task',
@@ -77,13 +95,14 @@ export function GanttChart() {
       progress: 0,
       resources: [],
       dependencies: [],
-      parentId: null,
+      parentId: selected ? selected.parentId : null,
       expanded: false,
-      level: 0,
+      level: selected ? selected.level : 0,
     };
     updateTasks(prev => [...prev, newTask]);
     setSelectedTaskId(maxId + 1);
-  }, [tasks, updateTasks]);
+    setTimeout(() => scrollToTask(maxId + 1), 100);
+  }, [tasks, updateTasks, selectedTaskId, scrollToTask]);
 
   const addParallelTask = useCallback((refTaskId: number) => {
     const refTask = tasks.find(t => t.id === refTaskId);
@@ -105,7 +124,8 @@ export function GanttChart() {
     };
     updateTasks(prev => [...prev, newTask]);
     setSelectedTaskId(maxId + 1);
-  }, [tasks, updateTasks]);
+    setTimeout(() => scrollToTask(maxId + 1), 100);
+  }, [tasks, updateTasks, scrollToTask]);
 
   const addSubtask = useCallback((parentTaskId: number) => {
     const maxId = Math.max(0, ...tasks.map(t => t.id));
@@ -127,7 +147,8 @@ export function GanttChart() {
     };
     updateTasks(prev => prev.map(t => t.id === parentTaskId ? { ...t, expanded: true } : t).concat(newTask));
     setSelectedTaskId(maxId + 1);
-  }, [tasks, updateTasks]);
+    setTimeout(() => scrollToTask(maxId + 1), 100);
+  }, [tasks, updateTasks, scrollToTask]);
 
   const deleteTask = useCallback((taskId?: number) => {
     const idToDelete = taskId ?? selectedTaskId;
@@ -286,6 +307,8 @@ export function GanttChart() {
         onToggleResources={() => setShowResources(!showResources)}
         showResources={showResources}
         hasSelection={selectedTaskId !== null}
+        showCriticalPath={showCriticalPath}
+        onToggleCriticalPath={setShowCriticalPath}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -300,6 +323,8 @@ export function GanttChart() {
             onUpdateTask={updateTaskField}
             onUpdateResources={updateTaskResources}
             cpmResults={cpmResults}
+            showCriticalPath={showCriticalPath}
+            highlightTaskId={highlightTaskId}
             rowHeight={ROW_HEIGHT}
           />
         </div>
@@ -321,6 +346,7 @@ export function GanttChart() {
             onResizeTask={resizeTask}
             onContextMenu={(e, id) => { setContextMenu({ x: e.clientX, y: e.clientY, taskId: id }); setSelectedTaskId(id); }}
             cpmResults={cpmResults}
+            showCriticalPath={showCriticalPath}
             rowHeight={ROW_HEIGHT}
             dayWidth={DAY_WIDTH}
           />

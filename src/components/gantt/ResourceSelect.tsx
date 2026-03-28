@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Resource } from '@/lib/gantt-types';
-import { Check } from 'lucide-react';
+import { Check, UserPlus } from 'lucide-react';
 
 interface ResourceSelectProps {
   resources: Resource[];
@@ -26,30 +26,36 @@ export function ResourceSelect({ resources, selected, onChange }: ResourceSelect
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative w-full h-full">
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         className="flex items-center gap-0.5 w-full h-full"
       >
         {selected.length === 0 ? (
-          <span className="text-muted-foreground text-[10px]">Assign...</span>
+          <span className="flex items-center gap-1 text-muted-foreground text-[10px]">
+            <UserPlus className="h-3 w-3 text-muted-foreground" />
+            Assign
+          </span>
         ) : (
-          selected.slice(0, 3).map(rid => {
-            const r = resources.find(x => x.id === rid);
-            return r ? (
-              <span
-                key={rid}
-                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-bold text-primary-foreground shrink-0"
-                style={{ backgroundColor: r.color }}
-                title={r.name}
-              >
-                {r.name.split(' ').map(w => w[0]).join('')}
-              </span>
-            ) : null;
-          })
-        )}
-        {selected.length > 3 && (
-          <span className="text-muted-foreground text-[10px]">+{selected.length - 3}</span>
+          <>
+            {selected.slice(0, 3).map(rid => {
+              const r = resources.find(x => x.id === rid);
+              return r ? (
+                <span
+                  key={rid}
+                  className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-bold text-primary-foreground shrink-0"
+                  style={{ backgroundColor: r.color }}
+                  title={r.name}
+                >
+                  {r.name.split(' ').map(w => w[0]).join('')}
+                </span>
+              ) : null;
+            })}
+            {selected.length > 3 && (
+              <span className="text-muted-foreground text-[10px]">+{selected.length - 3}</span>
+            )}
+            <UserPlus className="h-3 w-3 ml-auto text-muted-foreground shrink-0" />
+          </>
         )}
       </button>
 

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
-import { FlatTask, Resource, formatDate, getDuration, dependencyToString, parsePredecessorString, toDateString } from '@/lib/gantt-types';
+import { FlatTask, Resource, formatDate, getDuration, dependencyToString, toDateString } from '@/lib/gantt-types';
 import { CPMResult } from '@/lib/gantt-cpm';
 import { ResourceSelect } from './ResourceSelect';
 
@@ -13,10 +13,12 @@ interface TreeGridProps {
   onUpdateTask: (id: number, field: string, value: any) => void;
   onUpdateResources: (id: number, resourceIds: string[]) => void;
   cpmResults: Map<number, CPMResult>;
+  showCriticalPath: boolean;
+  highlightTaskId: number | null;
   rowHeight: number;
 }
 
-export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onToggleExpand, onUpdateTask, onUpdateResources, cpmResults, rowHeight }: TreeGridProps) {
+export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onToggleExpand, onUpdateTask, onUpdateResources, cpmResults, showCriticalPath, highlightTaskId, rowHeight }: TreeGridProps) {
   const [editingCell, setEditingCell] = useState<{ id: number; field: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -31,7 +33,6 @@ export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onTog
     { key: 'progress', label: 'Progress', width: 72 },
     { key: 'resources', label: 'Resources', width: 120 },
     { key: 'predecessors', label: 'Predecessors', width: 110 },
-    { key: 'critical', label: 'Critical', width: 60 },
   ];
 
   const totalWidth = columns.reduce((s, c) => s + c.width, 0);
@@ -92,13 +93,21 @@ export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onTog
       {/* Rows */}
       {visibleTasks.map(task => {
         const cpm = cpmResults.get(task.id);
-        const isCritical = cpm?.isCritical ?? false;
+        const isCritical = showCriticalPath && (cpm?.isCritical ?? false);
+        const isHighlighted = highlightTaskId === task.id;
 
         return (
           <div
             key={task.id}
-            className={`flex border-b border-gantt-grid-line cursor-pointer transition-colors ${
-              selectedTaskId === task.id ? 'bg-gantt-row-selected' : 'hover:bg-gantt-row-hover'
+            data-task-id={task.id}
+            className={`flex border-b cursor-pointer transition-all ${
+              isHighlighted
+                ? 'bg-accent ring-2 ring-inset ring-primary'
+                : selectedTaskId === task.id
+                ? 'bg-gantt-row-selected'
+                : isCritical
+                ? 'bg-destructive/5 border-destructive/20'
+                : 'hover:bg-gantt-row-hover border-gantt-grid-line'
             }`}
             style={{ minWidth: totalWidth, height: rowHeight }}
             onClick={() => onSelectTask(task.id)}
@@ -136,7 +145,9 @@ export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onTog
                           onClick={e => e.stopPropagation()}
                         />
                       ) : (
-                        <span className={`truncate ${task.hasChildren ? 'font-semibold' : ''}`}>{task.name}</span>
+                        <span className={`truncate ${task.hasChildren ? 'font-semibold' : ''} ${isCritical ? 'text-destructive font-medium' : ''}`}>
+                          {task.name}
+                        </span>
                       )}
                     </div>
                   ) : col.key === 'progress' ? (
@@ -152,16 +163,6 @@ export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onTog
                       selected={task.resources}
                       onChange={(ids) => onUpdateResources(task.id, ids)}
                     />
-                  ) : col.key === 'critical' ? (
-                    isCritical ? (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-destructive/15 text-destructive">
-                        Critical
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-[10px]">
-                        {cpm ? `${cpm.totalFloat.toFixed(0)}d` : '—'}
-                      </span>
-                    )
                   ) : isEditing ? (
                     <input
                       ref={inputRef}
