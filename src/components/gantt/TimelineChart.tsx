@@ -241,6 +241,8 @@ export function TimelineChart({
             const barHeight = task.hasChildren ? 8 : 20;
             const barY = y + (rowHeight - barHeight) / 2;
             const isSelected = selectedTaskId === task.id;
+            const cpm = cpmResults.get(task.id);
+            const isCritical = cpm?.isCritical ?? false;
 
             if (task.hasChildren) {
               // Parent bar - bracket style
