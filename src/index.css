@@ -49,6 +49,7 @@
     --gantt-row-hover: 210 30% 96%;
     --gantt-row-selected: 213 50% 94%;
     --gantt-success: 152 55% 42%;
+    --gantt-critical: 0 85% 55%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;

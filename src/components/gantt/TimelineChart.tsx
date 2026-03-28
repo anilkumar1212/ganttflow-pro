@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { FlatTask, Resource, Dependency, addDays, getDuration } from '@/lib/gantt-types';
+import { CPMResult } from '@/lib/gantt-cpm';
 
 interface TimelineChartProps {
   tasks: FlatTask[];
@@ -9,13 +10,14 @@ interface TimelineChartProps {
   onMoveTask: (id: number, newStart: Date) => void;
   onResizeTask: (id: number, newEnd: Date) => void;
   onContextMenu: (e: React.MouseEvent, taskId: number) => void;
+  cpmResults: Map<number, CPMResult>;
   rowHeight: number;
   dayWidth: number;
 }
 
 export function TimelineChart({
   tasks, resources, selectedTaskId, onSelectTask,
-  onMoveTask, onResizeTask, onContextMenu, rowHeight, dayWidth,
+  onMoveTask, onResizeTask, onContextMenu, cpmResults, rowHeight, dayWidth,
 }: TimelineChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -239,6 +241,8 @@ export function TimelineChart({
             const barHeight = task.hasChildren ? 8 : 20;
             const barY = y + (rowHeight - barHeight) / 2;
             const isSelected = selectedTaskId === task.id;
+            const cpm = cpmResults.get(task.id);
+            const isCritical = cpm?.isCritical ?? false;
 
             if (task.hasChildren) {
               // Parent bar - bracket style
@@ -266,12 +270,17 @@ export function TimelineChart({
                 {/* Bar background */}
                 <rect
                   x={x} y={barY} width={width} height={barHeight} rx={3}
-                  fill="hsl(var(--gantt-bar))"
+                  fill={isCritical ? 'hsl(var(--gantt-critical))' : 'hsl(var(--gantt-bar))'}
                   className="cursor-grab"
                   onMouseDown={e => handleMouseDown(e, task.id, 'move')}
                   onClick={() => onSelectTask(task.id)}
                   onContextMenu={e => onContextMenu(e, task.id)}
                 />
+
+                {/* Critical glow */}
+                {isCritical && (
+                  <rect x={x - 2} y={barY - 2} width={width + 4} height={barHeight + 4} rx={5} fill="none" stroke="hsl(var(--gantt-critical))" strokeWidth={1} strokeOpacity={0.4} />
+                )}
 
                 {/* Progress fill */}
                 <rect
