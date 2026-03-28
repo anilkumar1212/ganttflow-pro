@@ -1,6 +1,7 @@
-import { Plus, Pencil, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users } from 'lucide-react';
+import { Plus, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 
 interface GanttToolbarProps {
   searchQuery: string;
@@ -14,12 +15,15 @@ interface GanttToolbarProps {
   onToggleResources: () => void;
   showResources: boolean;
   hasSelection: boolean;
+  showCriticalPath: boolean;
+  onToggleCriticalPath: (on: boolean) => void;
 }
 
 export function GanttToolbar({
   searchQuery, onSearchChange, onAddTask, onDeleteTask,
   onIndent, onOutdent, onExpandAll, onCollapseAll,
   onToggleResources, showResources, hasSelection,
+  showCriticalPath, onToggleCriticalPath,
 }: GanttToolbarProps) {
   return (
     <div className="flex items-center gap-1 px-3 py-2 border-b bg-card">
@@ -47,6 +51,19 @@ export function GanttToolbar({
       <Button size="sm" variant="ghost" onClick={onCollapseAll} title="Collapse All">
         <ChevronUp className="h-3.5 w-3.5" />
       </Button>
+
+      <div className="w-px h-5 bg-border mx-1" />
+
+      <div className="flex items-center gap-2">
+        <Switch
+          id="critical-path-toggle"
+          checked={showCriticalPath}
+          onCheckedChange={onToggleCriticalPath}
+        />
+        <label htmlFor="critical-path-toggle" className="text-xs font-medium cursor-pointer select-none text-foreground">
+          Critical Path
+        </label>
+      </div>
 
       <div className="flex-1" />
 

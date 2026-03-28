@@ -11,13 +11,14 @@ interface TimelineChartProps {
   onResizeTask: (id: number, newEnd: Date) => void;
   onContextMenu: (e: React.MouseEvent, taskId: number) => void;
   cpmResults: Map<number, CPMResult>;
+  showCriticalPath: boolean;
   rowHeight: number;
   dayWidth: number;
 }
 
 export function TimelineChart({
   tasks, resources, selectedTaskId, onSelectTask,
-  onMoveTask, onResizeTask, onContextMenu, cpmResults, rowHeight, dayWidth,
+  onMoveTask, onResizeTask, onContextMenu, cpmResults, showCriticalPath, rowHeight, dayWidth,
 }: TimelineChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,10 +44,6 @@ export function TimelineChart({
 
   function dateToX(date: Date): number {
     return getDuration(startDate, date) * dayWidth;
-  }
-
-  function xToDate(x: number): Date {
-    return addDays(startDate, Math.round(x / dayWidth));
   }
 
   // Generate day headers
@@ -127,35 +124,26 @@ export function TimelineChart({
     const fromY = predIndex * rowHeight + halfRow;
     const toY = taskIndex * rowHeight + halfRow;
 
-    // Determine connection points based on link type
-    // "from" = which end of the PREDECESSOR to leave from
-    // "to"   = which end of the SUCCESSOR to arrive at
-    const fromEnd = dep.type === 'FS' || dep.type === 'FF'; // true = end, false = start
-    const toEnd   = dep.type === 'SF' || dep.type === 'FF'; // true = end, false = start
+    const fromEnd = dep.type === 'FS' || dep.type === 'FF';
+    const toEnd   = dep.type === 'SF' || dep.type === 'FF';
 
     const fromX = fromEnd ? dateToX(pred.end) : dateToX(pred.start);
     const toX   = toEnd   ? dateToX(task.end)  : dateToX(task.start);
 
-    // Build an orthogonal path with proper routing
     const margin = 12;
     const exitX  = fromEnd ? fromX + margin : fromX - margin;
     const enterX = toEnd   ? toX + margin   : toX - margin;
 
     let pathD: string;
-    const goingDown = toY > fromY;
-    const midY = goingDown ? fromY + halfRow : fromY - halfRow;
 
     if ((fromEnd && toX >= fromX + margin) || (!fromEnd && toX <= fromX - margin)) {
-      // Simple: exit, go vertical, enter horizontally
       pathD = `M${fromX},${fromY} H${exitX} V${toY} H${toX}`;
     } else {
-      // Need to route around: exit, go halfway down/up, go horizontal, then arrive
       const routeY = (fromY + toY) / 2;
       pathD = `M${fromX},${fromY} H${exitX} V${routeY} H${enterX} V${toY} H${toX}`;
     }
 
-    // Arrow head points toward the target connection point
-    const arrowDir = toEnd ? 1 : -1; // 1 = pointing right (arriving at end), -1 = pointing left (arriving at start)
+    const arrowDir = toEnd ? 1 : -1;
     const ax = toX;
     const ay = toY;
 
@@ -242,18 +230,14 @@ export function TimelineChart({
             const barY = y + (rowHeight - barHeight) / 2;
             const isSelected = selectedTaskId === task.id;
             const cpm = cpmResults.get(task.id);
-            const isCritical = cpm?.isCritical ?? false;
+            const isCritical = showCriticalPath && (cpm?.isCritical ?? false);
 
             if (task.hasChildren) {
-              // Parent bar - bracket style
               return (
                 <g key={task.id} onClick={() => onSelectTask(task.id)} className="cursor-pointer">
                   <rect x={x} y={barY} width={width} height={barHeight} rx={1} fill="hsl(var(--gantt-bar-parent))" opacity={0.8} />
-                  {/* Left bracket */}
                   <rect x={x} y={barY} width={3} height={barHeight + 4} fill="hsl(var(--gantt-bar-parent))" />
-                  {/* Right bracket */}
                   <rect x={x + width - 3} y={barY} width={3} height={barHeight + 4} fill="hsl(var(--gantt-bar-parent))" />
-                  {/* Progress */}
                   <rect x={x} y={barY} width={width * (task.progress / 100)} height={barHeight} rx={1} fill="hsl(var(--gantt-bar-progress))" opacity={0.5} />
                   {isSelected && <rect x={x - 1} y={barY - 1} width={width + 2} height={barHeight + 2} rx={2} fill="none" stroke="hsl(var(--ring))" strokeWidth={2} />}
                 </g>
@@ -262,7 +246,6 @@ export function TimelineChart({
 
             return (
               <g key={task.id} className="cursor-pointer">
-                {/* Selection highlight */}
                 {isSelected && (
                   <rect x={0} y={y} width={totalWidth} height={rowHeight} fill="hsl(var(--gantt-row-selected))" />
                 )}
@@ -279,7 +262,9 @@ export function TimelineChart({
 
                 {/* Critical glow */}
                 {isCritical && (
-                  <rect x={x - 2} y={barY - 2} width={width + 4} height={barHeight + 4} rx={5} fill="none" stroke="hsl(var(--gantt-critical))" strokeWidth={1} strokeOpacity={0.4} />
+                  <rect x={x - 2} y={barY - 2} width={width + 4} height={barHeight + 4} rx={5} fill="none" stroke="hsl(var(--gantt-critical))" strokeWidth={1.5} strokeOpacity={0.5}>
+                    <animate attributeName="stroke-opacity" values="0.5;0.2;0.5" dur="2s" repeatCount="indefinite" />
+                  </rect>
                 )}
 
                 {/* Progress fill */}
@@ -288,7 +273,6 @@ export function TimelineChart({
                   fill="hsl(var(--gantt-bar-progress))"
                   className="pointer-events-none"
                 />
-                {/* Progress clip for left radius */}
                 {task.progress > 0 && task.progress < 100 && (
                   <rect
                     x={x + width * (task.progress / 100) - 3} y={barY}

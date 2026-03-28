@@ -27,17 +27,28 @@ export function hasCircularDependency(tasks: GanttTask[], taskId: number, newDep
 }
 
 // Schedule tasks based on dependency constraints (topological order)
+// Enforces: FS: succ.start >= pred.end + lag
+//           SS: succ.start >= pred.start + lag
+//           FF: succ.end >= pred.end + lag  =>  succ.start >= pred.end + lag - duration
+//           SF: succ.end >= pred.start + lag => succ.start >= pred.start + lag - duration
 export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
   const result = tasks.map(t => ({ ...t, start: new Date(t.start), end: new Date(t.end) }));
   const taskMap = new Map(result.map(t => [t.id, t]));
+
+  // Identify parent tasks (summary tasks don't get scheduled by deps)
+  const parentIds = new Set<number>();
+  for (const t of result) {
+    if (t.parentId !== null) parentIds.add(t.parentId);
+  }
 
   // Build adjacency: task -> list of successors
   const successors = new Map<number, number[]>();
   const inDegree = new Map<number, number>();
   for (const t of result) {
     if (!successors.has(t.id)) successors.set(t.id, []);
-    inDegree.set(t.id, t.dependencies.length);
-    for (const dep of t.dependencies) {
+    const validDeps = t.dependencies.filter(d => taskMap.has(d.predecessorId));
+    inDegree.set(t.id, validDeps.length);
+    for (const dep of validDeps) {
       if (!successors.has(dep.predecessorId)) successors.set(dep.predecessorId, []);
       successors.get(dep.predecessorId)!.push(t.id);
     }
@@ -62,40 +73,38 @@ export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
   // Process in topological order - compute earliest start based on predecessors
   for (const id of order) {
     const task = taskMap.get(id)!;
-    if (task.dependencies.length === 0) continue;
+    const validDeps = task.dependencies.filter(d => taskMap.has(d.predecessorId));
+    if (validDeps.length === 0) continue;
 
-    // Only schedule leaf tasks (non-parent), parents get rolled up
-    const isParent = result.some(t => t.parentId === id);
-    if (isParent) continue;
+    // Skip parent/summary tasks - they get rolled up from children
+    if (parentIds.has(id)) continue;
 
     const duration = getDuration(task.start, task.end);
     let earliestStart = task.start;
 
-    for (const dep of task.dependencies) {
-      const pred = taskMap.get(dep.predecessorId);
-      if (!pred) continue;
+    for (const dep of validDeps) {
+      const pred = taskMap.get(dep.predecessorId)!;
 
       let constraintDate: Date;
       switch (dep.type) {
-        case 'FS': // Finish-to-Start: successor starts after predecessor finishes
+        case 'FS': // Finish-to-Start: successor start >= predecessor end + lag
           constraintDate = addDays(pred.end, dep.lag);
-          if (constraintDate > earliestStart) earliestStart = constraintDate;
           break;
-        case 'SS': // Start-to-Start: successor starts when predecessor starts
+        case 'SS': // Start-to-Start: successor start >= predecessor start + lag
           constraintDate = addDays(pred.start, dep.lag);
-          if (constraintDate > earliestStart) earliestStart = constraintDate;
           break;
-        case 'FF': // Finish-to-Finish: successor finishes when predecessor finishes
-          // successor end = pred.end + lag, so successor start = pred.end + lag - duration
+        case 'FF': // Finish-to-Finish: successor end >= predecessor end + lag
+          // => successor start >= pred.end + lag - duration
           constraintDate = addDays(pred.end, dep.lag - duration);
-          if (constraintDate > earliestStart) earliestStart = constraintDate;
           break;
-        case 'SF': // Start-to-Finish: successor finishes when predecessor starts
-          // successor end = pred.start + lag, so successor start = pred.start + lag - duration
+        case 'SF': // Start-to-Finish: successor end >= predecessor start + lag
+          // => successor start >= pred.start + lag - duration
           constraintDate = addDays(pred.start, dep.lag - duration);
-          if (constraintDate > earliestStart) earliestStart = constraintDate;
           break;
+        default:
+          constraintDate = task.start;
       }
+      if (constraintDate > earliestStart) earliestStart = constraintDate;
     }
 
     task.start = earliestStart;
@@ -110,12 +119,15 @@ export function rollupParentDates(tasks: GanttTask[]): GanttTask[] {
   // First schedule dependencies, then rollup parents
   const scheduled = scheduleDependencies(tasks);
 
+  // Multi-level rollup: process deepest parents first
   const parentIds = new Set(scheduled.filter(t => t.parentId !== null).map(t => t.parentId!));
 
-  for (const pid of parentIds) {
-    const parent = scheduled.find(t => t.id === pid);
-    if (!parent) continue;
-    const children = scheduled.filter(t => t.parentId === pid);
+  // Sort parents by level descending so deeper parents roll up first
+  const parentList = scheduled.filter(t => parentIds.has(t.id));
+  parentList.sort((a, b) => b.level - a.level);
+
+  for (const parent of parentList) {
+    const children = scheduled.filter(t => t.parentId === parent.id);
     if (children.length === 0) continue;
 
     const minStart = new Date(Math.min(...children.map(c => c.start.getTime())));
