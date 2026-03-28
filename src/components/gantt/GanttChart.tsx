@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { GanttTask, FlatTask, Resource, Dependency, addDays, getDuration, parsePredecessorString } from '@/lib/gantt-types';
 import { createSampleData, flattenTasks, rollupParentDates, hasCircularDependency } from '@/lib/gantt-store';
+import { calculateCriticalPath, CPMResult } from '@/lib/gantt-cpm';
 import { GanttToolbar } from './GanttToolbar';
 import { TreeGrid } from './TreeGrid';
 import { TimelineChart } from './TimelineChart';
@@ -56,6 +57,9 @@ export function GanttChart() {
     visible: t.visible && (searchQuery === '' || t.name.toLowerCase().includes(searchQuery.toLowerCase())),
   }));
 
+  // CPM calculation
+  const cpmResults = useMemo(() => calculateCriticalPath(tasks), [tasks]);
+
   const updateTasks = useCallback((updater: (prev: GanttTask[]) => GanttTask[]) => {
     setTasks(prev => rollupParentDates(updater(prev)));
   }, []);
@@ -81,15 +85,60 @@ export function GanttChart() {
     setSelectedTaskId(maxId + 1);
   }, [tasks, updateTasks]);
 
-  const deleteTask = useCallback(() => {
-    if (selectedTaskId === null) return;
+  const addParallelTask = useCallback((refTaskId: number) => {
+    const refTask = tasks.find(t => t.id === refTaskId);
+    if (!refTask) return;
+    const maxId = Math.max(0, ...tasks.map(t => t.id));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newTask: GanttTask = {
+      id: maxId + 1,
+      name: 'New Parallel Task',
+      start: today,
+      end: addDays(today, 5),
+      progress: 0,
+      resources: [],
+      dependencies: [],
+      parentId: refTask.parentId,
+      expanded: false,
+      level: refTask.level,
+    };
+    updateTasks(prev => [...prev, newTask]);
+    setSelectedTaskId(maxId + 1);
+  }, [tasks, updateTasks]);
+
+  const addSubtask = useCallback((parentTaskId: number) => {
+    const maxId = Math.max(0, ...tasks.map(t => t.id));
+    const parent = tasks.find(t => t.id === parentTaskId);
+    if (!parent) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newTask: GanttTask = {
+      id: maxId + 1,
+      name: 'New Sub-task',
+      start: today,
+      end: addDays(today, 3),
+      progress: 0,
+      resources: [],
+      dependencies: [],
+      parentId: parentTaskId,
+      expanded: false,
+      level: parent.level + 1,
+    };
+    updateTasks(prev => prev.map(t => t.id === parentTaskId ? { ...t, expanded: true } : t).concat(newTask));
+    setSelectedTaskId(maxId + 1);
+  }, [tasks, updateTasks]);
+
+  const deleteTask = useCallback((taskId?: number) => {
+    const idToDelete = taskId ?? selectedTaskId;
+    if (idToDelete === null || idToDelete === undefined) return;
     updateTasks(prev => {
       const idsToRemove = new Set<number>();
       function collectIds(id: number) {
         idsToRemove.add(id);
         prev.filter(t => t.parentId === id).forEach(c => collectIds(c.id));
       }
-      collectIds(selectedTaskId);
+      collectIds(idToDelete);
       return prev
         .filter(t => !idsToRemove.has(t.id))
         .map(t => ({
@@ -97,7 +146,7 @@ export function GanttChart() {
           dependencies: t.dependencies.filter(d => !idsToRemove.has(d.predecessorId)),
         }));
     });
-    setSelectedTaskId(null);
+    if (idToDelete === selectedTaskId) setSelectedTaskId(null);
   }, [selectedTaskId, updateTasks]);
 
   const indentTask = useCallback(() => {
@@ -107,7 +156,7 @@ export function GanttChart() {
     if (idx <= 0) return;
     const prevSibling = flat.slice(0, idx).reverse().find(t => t.level === flat[idx].level || t.level === flat[idx].level - 1);
     if (!prevSibling || prevSibling.level < flat[idx].level - 1) return;
-    const newParentId = prevSibling.level === flat[idx].level ? prevSibling.id : prevSibling.id;
+    const newParentId = prevSibling.id;
     updateTasks(prev => prev.map(t => {
       if (t.id === selectedTaskId) return { ...t, parentId: newParentId, level: t.level + 1 };
       return t;
@@ -179,6 +228,10 @@ export function GanttChart() {
     }));
   }, [updateTasks, toast]);
 
+  const updateTaskResources = useCallback((id: number, resourceIds: string[]) => {
+    updateTasks(prev => prev.map(t => t.id === id ? { ...t, resources: resourceIds } : t));
+  }, [updateTasks]);
+
   const moveTask = useCallback((id: number, newStart: Date) => {
     updateTasks(prev => prev.map(t => {
       if (t.id !== id) return t;
@@ -225,7 +278,7 @@ export function GanttChart() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onAddTask={addTask}
-        onDeleteTask={deleteTask}
+        onDeleteTask={() => deleteTask()}
         onIndent={indentTask}
         onOutdent={outdentTask}
         onExpandAll={expandAll}
@@ -245,6 +298,8 @@ export function GanttChart() {
             onSelectTask={setSelectedTaskId}
             onToggleExpand={toggleExpand}
             onUpdateTask={updateTaskField}
+            onUpdateResources={updateTaskResources}
+            cpmResults={cpmResults}
             rowHeight={ROW_HEIGHT}
           />
         </div>
@@ -265,6 +320,7 @@ export function GanttChart() {
             onMoveTask={moveTask}
             onResizeTask={resizeTask}
             onContextMenu={(e, id) => { setContextMenu({ x: e.clientX, y: e.clientY, taskId: id }); setSelectedTaskId(id); }}
+            cpmResults={cpmResults}
             rowHeight={ROW_HEIGHT}
             dayWidth={DAY_WIDTH}
           />
@@ -286,8 +342,10 @@ export function GanttChart() {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
-          onDelete={() => { setSelectedTaskId(contextMenu.taskId); deleteTask(); }}
+          onDelete={() => { deleteTask(contextMenu.taskId); setContextMenu(null); }}
           onSetProgress={p => updateTaskField(contextMenu.taskId, 'progress', String(p))}
+          onAddParallel={() => { addParallelTask(contextMenu.taskId); setContextMenu(null); }}
+          onAddSubtask={() => { addSubtask(contextMenu.taskId); setContextMenu(null); }}
         />
       )}
     </div>
