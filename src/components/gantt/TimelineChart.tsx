@@ -17,7 +17,7 @@ interface TimelineChartProps {
 
 export function TimelineChart({
   tasks, resources, selectedTaskId, onSelectTask,
-  onMoveTask, onResizeTask, onContextMenu, rowHeight, dayWidth,
+  onMoveTask, onResizeTask, onContextMenu, cpmResults, rowHeight, dayWidth,
 }: TimelineChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
