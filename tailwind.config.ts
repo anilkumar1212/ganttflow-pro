@@ -75,6 +75,7 @@ export default {
           "row-hover": "hsl(var(--gantt-row-hover))",
           "row-selected": "hsl(var(--gantt-row-selected))",
           success: "hsl(var(--gantt-success))",
+          critical: "hsl(var(--gantt-critical))",
         },
       },
       borderRadius: {
