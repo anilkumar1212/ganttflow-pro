@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { FlatTask, Resource, Dependency, addDays, getDuration } from '@/lib/gantt-types';
+import { FlatTask, Resource, Dependency, addDays, getDuration, formatDate } from '@/lib/gantt-types';
 import { CPMResult } from '@/lib/gantt-cpm';
 
 interface TimelineChartProps {
