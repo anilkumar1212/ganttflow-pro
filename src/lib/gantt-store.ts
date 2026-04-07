@@ -71,6 +71,9 @@ export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
   }
 
   // Process in topological order - compute earliest start based on predecessors
+  // CRITICAL FIX: For tasks with dependencies, compute dates purely from
+  // predecessor constraints (not from the task's current start). This ensures
+  // switching dependency types (e.g. FS→SS→FS) always produces correct results.
   for (const id of order) {
     const task = taskMap.get(id)!;
     const validDeps = task.dependencies.filter(d => taskMap.has(d.predecessorId));
@@ -80,7 +83,9 @@ export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
     if (parentIds.has(id)) continue;
 
     const duration = getDuration(task.start, task.end);
-    let earliestStart = task.start;
+
+    // Start from the earliest possible date (epoch) so constraints fully drive the result
+    let earliestStart = new Date(0);
 
     for (const dep of validDeps) {
       const pred = taskMap.get(dep.predecessorId)!;
@@ -102,7 +107,7 @@ export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
           constraintDate = addDays(pred.start, dep.lag - duration);
           break;
         default:
-          constraintDate = task.start;
+          constraintDate = new Date(0);
       }
       if (constraintDate > earliestStart) earliestStart = constraintDate;
     }
