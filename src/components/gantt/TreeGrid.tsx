@@ -8,8 +8,8 @@ import { ProgressEditor } from './ProgressEditor';
 interface TreeGridProps {
   tasks: FlatTask[];
   resources: Resource[];
-  selectedTaskId: number | null;
-  onSelectTask: (id: number | null) => void;
+  selectedTaskIds: Set<number>;
+  onSelectTask: (id: number, ctrlKey: boolean, shiftKey: boolean) => void;
   onToggleExpand: (id: number) => void;
   onUpdateTask: (id: number, field: string, value: any) => void;
   onUpdateResources: (id: number, resourceIds: string[]) => void;
@@ -19,7 +19,7 @@ interface TreeGridProps {
   rowHeight: number;
 }
 
-export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onToggleExpand, onUpdateTask, onUpdateResources, cpmResults, showCriticalPath, highlightTaskId, rowHeight }: TreeGridProps) {
+export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onToggleExpand, onUpdateTask, onUpdateResources, cpmResults, showCriticalPath, highlightTaskId, rowHeight }: TreeGridProps) {
   const [editingCell, setEditingCell] = useState<{ id: number; field: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -96,6 +96,7 @@ export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onTog
         const cpm = cpmResults.get(task.id);
         const isCritical = showCriticalPath && (cpm?.isCritical ?? false);
         const isHighlighted = highlightTaskId === task.id;
+        const isSelected = selectedTaskIds.has(task.id);
 
         return (
           <div
@@ -104,15 +105,15 @@ export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onTog
             className={`flex border-b cursor-pointer transition-all ${
               isHighlighted
                 ? 'bg-accent ring-2 ring-inset ring-primary'
-                : selectedTaskId === task.id
+                : isSelected
                 ? 'bg-gantt-row-selected'
                 : isCritical
                 ? 'bg-destructive/5 border-destructive/20'
                 : 'hover:bg-gantt-row-hover border-gantt-grid-line'
             }`}
             style={{ minWidth: totalWidth, height: rowHeight }}
-            onClick={() => onSelectTask(task.id)}
-            onContextMenu={e => { e.preventDefault(); onSelectTask(task.id); }}
+            onClick={(e) => onSelectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey)}
+            onContextMenu={e => { e.preventDefault(); onSelectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey); }}
           >
             {columns.map(col => {
               const isEditing = editingCell?.id === task.id && editingCell?.field === col.key;
