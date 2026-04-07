@@ -17,7 +17,8 @@ export function GanttChart() {
   const sampleData = useRef(createSampleData());
   const [tasks, setTasks] = useState<GanttTask[]>(sampleData.current.tasks);
   const [resources, setResources] = useState<Resource[]>(sampleData.current.resources);
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
+  const [clipboard, setClipboard] = useState<GanttTask[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showResources, setShowResources] = useState(false);
   const [showCriticalPath, setShowCriticalPath] = useState(false);
@@ -28,6 +29,8 @@ export function GanttChart() {
 
   const treeScrollRef = useRef<HTMLDivElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
+
+  const firstSelectedId = selectedTaskIds.size > 0 ? [...selectedTaskIds][0] : null;
 
   // Sync vertical scroll
   useEffect(() => {
@@ -79,14 +82,124 @@ export function GanttChart() {
     setTimeout(() => setHighlightTaskId(null), 1500);
   }, [tasks]);
 
+  // Select handler for single click from timeline
+  const handleSelectTask = useCallback((id: number | null) => {
+    if (id === null) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set([id]));
+    }
+  }, []);
+
+  // Multi-select handler from TreeGrid
+  const handleMultiSelect = useCallback((id: number, ctrlKey: boolean, shiftKey: boolean) => {
+    setSelectedTaskIds(prev => {
+      if (shiftKey && prev.size > 0) {
+        const visibleIds = flatTasks.filter(t => t.visible).map(t => t.id);
+        const lastSelected = [...prev][prev.size - 1];
+        const lastIdx = visibleIds.indexOf(lastSelected);
+        const curIdx = visibleIds.indexOf(id);
+        if (lastIdx === -1 || curIdx === -1) return new Set([id]);
+        const start = Math.min(lastIdx, curIdx);
+        const end = Math.max(lastIdx, curIdx);
+        const rangeIds = visibleIds.slice(start, end + 1);
+        const next = new Set(prev);
+        rangeIds.forEach(rid => next.add(rid));
+        return next;
+      }
+      if (ctrlKey) {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      }
+      return new Set([id]);
+    });
+  }, [flatTasks]);
+
+  // Copy & Paste
+  const copySelectedTasks = useCallback(() => {
+    if (selectedTaskIds.size === 0) return;
+    const selectedTasks = tasks.filter(t => selectedTaskIds.has(t.id));
+    setClipboard(selectedTasks);
+    toast({ title: 'Copied', description: `${selectedTasks.length} task(s) copied to clipboard` });
+  }, [selectedTaskIds, tasks, toast]);
+
+  const pasteClipboard = useCallback(() => {
+    if (clipboard.length === 0) return;
+    let maxId = Math.max(0, ...tasks.map(t => t.id));
+    const idMap = new Map<number, number>();
+    const newTasks: GanttTask[] = clipboard.map(t => {
+      maxId += 1;
+      idMap.set(t.id, maxId);
+      return {
+        ...t,
+        id: maxId,
+        name: `${t.name} (copy)`,
+        start: new Date(t.start),
+        end: new Date(t.end),
+        dependencies: [],
+        resources: [...t.resources],
+      };
+    });
+    // Remap parentIds within the copied set
+    newTasks.forEach(nt => {
+      if (nt.parentId !== null && idMap.has(nt.parentId)) {
+        nt.parentId = idMap.get(nt.parentId)!;
+      } else {
+        // If parent wasn't copied, keep same parent or set to null
+        if (nt.parentId !== null && !tasks.find(t => t.id === nt.parentId)) {
+          nt.parentId = null;
+          nt.level = 0;
+        }
+      }
+    });
+    // Remap internal dependencies
+    newTasks.forEach(nt => {
+      const orig = clipboard.find(c => idMap.get(c.id) === nt.id);
+      if (orig) {
+        nt.dependencies = orig.dependencies
+          .filter(d => idMap.has(d.predecessorId))
+          .map(d => ({ ...d, predecessorId: idMap.get(d.predecessorId)! }));
+      }
+    });
+
+    updateTasks(prev => [...prev, ...newTasks]);
+    const newIds = new Set(newTasks.map(t => t.id));
+    setSelectedTaskIds(newIds);
+    toast({ title: 'Pasted', description: `${newTasks.length} task(s) pasted` });
+  }, [clipboard, tasks, updateTasks, toast]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        copySelectedTasks();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        pasteClipboard();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [copySelectedTasks, pasteClipboard]);
+
   // Task operations
   const addTask = useCallback(() => {
     const maxId = Math.max(0, ...tasks.map(t => t.id));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Context-aware: if a task is selected, add parallel
-    const selected = selectedTaskId !== null ? tasks.find(t => t.id === selectedTaskId) : null;
+    const selected = firstSelectedId !== null ? tasks.find(t => t.id === firstSelectedId) : null;
     const newTask: GanttTask = {
       id: maxId + 1,
       name: 'New Task',
@@ -100,9 +213,9 @@ export function GanttChart() {
       level: selected ? selected.level : 0,
     };
     updateTasks(prev => [...prev, newTask]);
-    setSelectedTaskId(maxId + 1);
+    setSelectedTaskIds(new Set([maxId + 1]));
     setTimeout(() => scrollToTask(maxId + 1), 100);
-  }, [tasks, updateTasks, selectedTaskId, scrollToTask]);
+  }, [tasks, updateTasks, firstSelectedId, scrollToTask]);
 
   const addParallelTask = useCallback((refTaskId: number) => {
     const refTask = tasks.find(t => t.id === refTaskId);
@@ -123,7 +236,7 @@ export function GanttChart() {
       level: refTask.level,
     };
     updateTasks(prev => [...prev, newTask]);
-    setSelectedTaskId(maxId + 1);
+    setSelectedTaskIds(new Set([maxId + 1]));
     setTimeout(() => scrollToTask(maxId + 1), 100);
   }, [tasks, updateTasks, scrollToTask]);
 
@@ -146,20 +259,20 @@ export function GanttChart() {
       level: parent.level + 1,
     };
     updateTasks(prev => prev.map(t => t.id === parentTaskId ? { ...t, expanded: true } : t).concat(newTask));
-    setSelectedTaskId(maxId + 1);
+    setSelectedTaskIds(new Set([maxId + 1]));
     setTimeout(() => scrollToTask(maxId + 1), 100);
   }, [tasks, updateTasks, scrollToTask]);
 
   const deleteTask = useCallback((taskId?: number) => {
-    const idToDelete = taskId ?? selectedTaskId;
-    if (idToDelete === null || idToDelete === undefined) return;
+    const idsToProcess = taskId !== undefined ? [taskId] : [...selectedTaskIds];
+    if (idsToProcess.length === 0) return;
     updateTasks(prev => {
       const idsToRemove = new Set<number>();
       function collectIds(id: number) {
         idsToRemove.add(id);
         prev.filter(t => t.parentId === id).forEach(c => collectIds(c.id));
       }
-      collectIds(idToDelete);
+      idsToProcess.forEach(id => collectIds(id));
       return prev
         .filter(t => !idsToRemove.has(t.id))
         .map(t => ({
@@ -167,36 +280,40 @@ export function GanttChart() {
           dependencies: t.dependencies.filter(d => !idsToRemove.has(d.predecessorId)),
         }));
     });
-    if (idToDelete === selectedTaskId) setSelectedTaskId(null);
-  }, [selectedTaskId, updateTasks]);
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      idsToProcess.forEach(id => next.delete(id));
+      return next;
+    });
+  }, [selectedTaskIds, updateTasks]);
 
   const indentTask = useCallback(() => {
-    if (selectedTaskId === null) return;
+    if (firstSelectedId === null) return;
     const flat = flattenTasks(tasks);
-    const idx = flat.findIndex(t => t.id === selectedTaskId);
+    const idx = flat.findIndex(t => t.id === firstSelectedId);
     if (idx <= 0) return;
     const prevSibling = flat.slice(0, idx).reverse().find(t => t.level === flat[idx].level || t.level === flat[idx].level - 1);
     if (!prevSibling || prevSibling.level < flat[idx].level - 1) return;
     const newParentId = prevSibling.id;
     updateTasks(prev => prev.map(t => {
-      if (t.id === selectedTaskId) return { ...t, parentId: newParentId, level: t.level + 1 };
+      if (t.id === firstSelectedId) return { ...t, parentId: newParentId, level: t.level + 1 };
       return t;
     }).map(t => {
       if (t.id === newParentId) return { ...t, expanded: true };
       return t;
     }));
-  }, [selectedTaskId, tasks, updateTasks]);
+  }, [firstSelectedId, tasks, updateTasks]);
 
   const outdentTask = useCallback(() => {
-    if (selectedTaskId === null) return;
-    const task = tasks.find(t => t.id === selectedTaskId);
+    if (firstSelectedId === null) return;
+    const task = tasks.find(t => t.id === firstSelectedId);
     if (!task || task.parentId === null) return;
     const parent = tasks.find(t => t.id === task.parentId);
     updateTasks(prev => prev.map(t => {
-      if (t.id === selectedTaskId) return { ...t, parentId: parent?.parentId ?? null, level: Math.max(0, t.level - 1) };
+      if (t.id === firstSelectedId) return { ...t, parentId: parent?.parentId ?? null, level: Math.max(0, t.level - 1) };
       return t;
     }));
-  }, [selectedTaskId, tasks, updateTasks]);
+  }, [firstSelectedId, tasks, updateTasks]);
 
   const expandAll = useCallback(() => {
     updateTasks(prev => prev.map(t => ({ ...t, expanded: true })));
@@ -306,7 +423,7 @@ export function GanttChart() {
         onCollapseAll={collapseAll}
         onToggleResources={() => setShowResources(!showResources)}
         showResources={showResources}
-        hasSelection={selectedTaskId !== null}
+        hasSelection={selectedTaskIds.size > 0}
         showCriticalPath={showCriticalPath}
         onToggleCriticalPath={setShowCriticalPath}
       />
@@ -317,8 +434,8 @@ export function GanttChart() {
           <TreeGrid
             tasks={flatTasks}
             resources={resources}
-            selectedTaskId={selectedTaskId}
-            onSelectTask={setSelectedTaskId}
+            selectedTaskIds={selectedTaskIds}
+            onSelectTask={handleMultiSelect}
             onToggleExpand={toggleExpand}
             onUpdateTask={updateTaskField}
             onUpdateResources={updateTaskResources}
@@ -340,11 +457,11 @@ export function GanttChart() {
           <TimelineChart
             tasks={flatTasks}
             resources={resources}
-            selectedTaskId={selectedTaskId}
-            onSelectTask={setSelectedTaskId}
+            selectedTaskIds={selectedTaskIds}
+            onSelectTask={handleSelectTask}
             onMoveTask={moveTask}
             onResizeTask={resizeTask}
-            onContextMenu={(e, id) => { setContextMenu({ x: e.clientX, y: e.clientY, taskId: id }); setSelectedTaskId(id); }}
+            onContextMenu={(e, id) => { setContextMenu({ x: e.clientX, y: e.clientY, taskId: id }); handleSelectTask(id); }}
             cpmResults={cpmResults}
             showCriticalPath={showCriticalPath}
             rowHeight={ROW_HEIGHT}

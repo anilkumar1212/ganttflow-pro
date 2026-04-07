@@ -5,7 +5,7 @@ import { CPMResult } from '@/lib/gantt-cpm';
 interface TimelineChartProps {
   tasks: FlatTask[];
   resources: Resource[];
-  selectedTaskId: number | null;
+  selectedTaskIds: Set<number>;
   onSelectTask: (id: number | null) => void;
   onMoveTask: (id: number, newStart: Date) => void;
   onResizeTask: (id: number, newEnd: Date) => void;
@@ -17,7 +17,7 @@ interface TimelineChartProps {
 }
 
 export function TimelineChart({
-  tasks, resources, selectedTaskId, onSelectTask,
+  tasks, resources, selectedTaskIds, onSelectTask,
   onMoveTask, onResizeTask, onContextMenu, cpmResults, showCriticalPath, rowHeight, dayWidth,
 }: TimelineChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -229,7 +229,7 @@ export function TimelineChart({
             const y = idx * rowHeight;
             const barHeight = task.hasChildren ? 8 : 20;
             const barY = y + (rowHeight - barHeight) / 2;
-            const isSelected = selectedTaskId === task.id;
+            const isSelected = selectedTaskIds.has(task.id);
             const cpm = cpmResults.get(task.id);
             const isCritical = showCriticalPath && (cpm?.isCritical ?? false);
 
