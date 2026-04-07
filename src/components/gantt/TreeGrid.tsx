@@ -152,12 +152,10 @@ export function TreeGrid({ tasks, resources, selectedTaskId, onSelectTask, onTog
                       )}
                     </div>
                   ) : col.key === 'progress' ? (
-                    <div className="flex items-center gap-1 w-full">
-                      <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-                        <div className="h-full bg-gantt-success rounded-full" style={{ width: `${task.progress}%` }} />
-                      </div>
-                      <span className="text-muted-foreground shrink-0">{task.progress}%</span>
-                    </div>
+                    <ProgressEditor
+                      progress={task.progress}
+                      onChange={(v) => onUpdateTask(task.id, 'progress', String(v))}
+                    />
                   ) : col.key === 'resources' ? (
                     <ResourceSelect
                       resources={resources}
