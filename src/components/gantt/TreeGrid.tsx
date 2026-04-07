@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
 import { FlatTask, Resource, formatDate, getDuration, dependencyToString, toDateString } from '@/lib/gantt-types';
 import { CPMResult } from '@/lib/gantt-cpm';
 import { ResourceSelect } from './ResourceSelect';
+import { ProgressEditor } from './ProgressEditor';
 
 interface TreeGridProps {
   tasks: FlatTask[];
