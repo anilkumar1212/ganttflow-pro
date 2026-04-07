@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { FlatTask, Resource, Dependency, addDays, getDuration } from '@/lib/gantt-types';
+import { FlatTask, Resource, Dependency, addDays, getDuration, formatDate } from '@/lib/gantt-types';
 import { CPMResult } from '@/lib/gantt-cpm';
 
 interface TimelineChartProps {
@@ -23,6 +23,7 @@ export function TimelineChart({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<{ taskId: number; mode: 'move' | 'resize'; startX: number; origStart: Date; origEnd: Date } | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; task: FlatTask } | null>(null);
 
   const visibleTasks = tasks.filter(t => t.visible);
 
@@ -258,6 +259,9 @@ export function TimelineChart({
                   onMouseDown={e => handleMouseDown(e, task.id, 'move')}
                   onClick={() => onSelectTask(task.id)}
                   onContextMenu={e => onContextMenu(e, task.id)}
+                  onMouseEnter={e => { if (!dragging) setTooltip({ x: e.clientX, y: e.clientY, task }); }}
+                  onMouseMove={e => { if (!dragging && tooltip?.task.id === task.id) setTooltip({ x: e.clientX, y: e.clientY, task }); }}
+                  onMouseLeave={() => setTooltip(null)}
                 />
 
                 {/* Critical glow */}
@@ -333,6 +337,38 @@ export function TimelineChart({
           })}
         </g>
       </svg>
+
+      {/* Hover tooltip */}
+      {tooltip && !dragging && (
+        <div
+          className="fixed z-50 pointer-events-none bg-popover text-popover-foreground border rounded-lg shadow-lg px-3 py-2.5 text-xs space-y-1 max-w-64"
+          style={{ left: tooltip.x + 14, top: tooltip.y - 10 }}
+        >
+          <div className="font-semibold text-sm truncate">{tooltip.task.name}</div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Start:</span>
+            <span>{formatDate(tooltip.task.start)}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">End:</span>
+            <span>{formatDate(tooltip.task.end)}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Duration:</span>
+            <span>{getDuration(tooltip.task.start, tooltip.task.end)}d</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Progress:</span>
+            <span>{tooltip.task.progress}%</span>
+          </div>
+          {tooltip.task.resources.length > 0 && (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Resources:</span>
+              <span className="text-right">{tooltip.task.resources.map(rid => resources.find(r => r.id === rid)?.name || rid).join(', ')}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
