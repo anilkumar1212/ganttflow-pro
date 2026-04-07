@@ -23,6 +23,7 @@ export function TimelineChart({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<{ taskId: number; mode: 'move' | 'resize'; startX: number; origStart: Date; origEnd: Date } | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; task: FlatTask } | null>(null);
 
   const visibleTasks = tasks.filter(t => t.visible);
 
