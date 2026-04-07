@@ -259,6 +259,9 @@ export function TimelineChart({
                   onMouseDown={e => handleMouseDown(e, task.id, 'move')}
                   onClick={() => onSelectTask(task.id)}
                   onContextMenu={e => onContextMenu(e, task.id)}
+                  onMouseEnter={e => { if (!dragging) setTooltip({ x: e.clientX, y: e.clientY, task }); }}
+                  onMouseMove={e => { if (!dragging && tooltip?.task.id === task.id) setTooltip({ x: e.clientX, y: e.clientY, task }); }}
+                  onMouseLeave={() => setTooltip(null)}
                 />
 
                 {/* Critical glow */}
