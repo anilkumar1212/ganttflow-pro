@@ -17,7 +17,8 @@ export function GanttChart() {
   const sampleData = useRef(createSampleData());
   const [tasks, setTasks] = useState<GanttTask[]>(sampleData.current.tasks);
   const [resources, setResources] = useState<Resource[]>(sampleData.current.resources);
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
+  const [clipboard, setClipboard] = useState<GanttTask[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showResources, setShowResources] = useState(false);
   const [showCriticalPath, setShowCriticalPath] = useState(false);
