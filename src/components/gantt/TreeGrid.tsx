@@ -123,7 +123,7 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
                 ? 'bg-destructive/5 border-destructive/20'
                 : 'hover:bg-gantt-row-hover border-gantt-grid-line'
             }`}
-            style={{ minWidth: totalWidth, height: rowHeight }}
+            style={{ minWidth: totalWidth, height: rowHeight, minHeight: rowHeight, maxHeight: rowHeight, boxSizing: 'border-box' }}
             onClick={(e) => onSelectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey)}
             onContextMenu={e => { e.preventDefault(); onSelectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey); }}
           >
