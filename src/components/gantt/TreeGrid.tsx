@@ -78,17 +78,29 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
 
   return (
     <div className="flex flex-col h-full bg-card gantt-scrollbar overflow-auto">
-      {/* Header */}
-      <div className="sticky top-0 z-10 flex bg-gantt-header" style={{ minWidth: totalWidth }}>
-        {columns.map(col => (
+      {/* Header - 2 rows to match timeline month+day headers */}
+      <div className="sticky top-0 z-10 flex flex-col" style={{ minWidth: totalWidth }}>
+        {/* Top row (matches month header) */}
+        <div className="flex bg-gantt-header" style={{ minWidth: totalWidth }}>
           <div
-            key={col.key}
-            className="flex items-center px-2 text-xs font-semibold text-gantt-header-foreground border-r border-gantt-header-foreground/10 shrink-0"
-            style={{ width: col.width, height: rowHeight }}
+            className="flex items-center px-3 text-xs font-semibold text-gantt-header-foreground"
+            style={{ width: totalWidth, height: rowHeight }}
           >
-            {col.label}
+            Task Details
           </div>
-        ))}
+        </div>
+        {/* Bottom row (matches day header) */}
+        <div className="flex bg-gantt-header/85" style={{ minWidth: totalWidth }}>
+          {columns.map(col => (
+            <div
+              key={col.key}
+              className="flex items-center px-2 text-[9px] font-semibold text-gantt-header-foreground/80 border-r border-gantt-header-foreground/10 shrink-0"
+              style={{ width: col.width, height: rowHeight }}
+            >
+              {col.label}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Rows */}

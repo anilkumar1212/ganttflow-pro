@@ -150,7 +150,6 @@ export function GanttChart() {
       if (nt.parentId !== null && idMap.has(nt.parentId)) {
         nt.parentId = idMap.get(nt.parentId)!;
       } else {
-        // If parent wasn't copied, keep same parent or set to null
         if (nt.parentId !== null && !tasks.find(t => t.id === nt.parentId)) {
           nt.parentId = null;
           nt.level = 0;
@@ -167,11 +166,21 @@ export function GanttChart() {
       }
     });
 
-    updateTasks(prev => [...prev, ...newTasks]);
+    // Insert after the last selected row instead of appending to end
+    updateTasks(prev => {
+      if (selectedTaskIds.size === 0) return [...prev, ...newTasks];
+      // Find the last selected task's index in the flat list
+      const lastSelectedId = [...selectedTaskIds].pop()!;
+      const insertIdx = prev.findIndex(t => t.id === lastSelectedId);
+      if (insertIdx === -1) return [...prev, ...newTasks];
+      const result = [...prev];
+      result.splice(insertIdx + 1, 0, ...newTasks);
+      return result;
+    });
     const newIds = new Set(newTasks.map(t => t.id));
     setSelectedTaskIds(newIds);
     toast({ title: 'Pasted', description: `${newTasks.length} task(s) pasted` });
-  }, [clipboard, tasks, updateTasks, toast]);
+  }, [clipboard, tasks, selectedTaskIds, updateTasks, toast]);
 
   // Keyboard shortcuts
   useEffect(() => {
