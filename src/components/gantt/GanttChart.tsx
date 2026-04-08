@@ -166,15 +166,27 @@ export function GanttChart() {
       }
     });
 
-    // Insert after the last selected row instead of appending to end
+    // Insert after the last selected row (and all its descendants)
     updateTasks(prev => {
       if (selectedTaskIds.size === 0) return [...prev, ...newTasks];
-      // Find the last selected task's index in the flat list
       const lastSelectedId = [...selectedTaskIds].pop()!;
       const insertIdx = prev.findIndex(t => t.id === lastSelectedId);
       if (insertIdx === -1) return [...prev, ...newTasks];
+      
+      // Find the end of the selected task's descendant block
+      let endIdx = insertIdx;
+      const collectDescendants = (parentId: number) => {
+        for (let i = 0; i < prev.length; i++) {
+          if (prev[i].parentId === parentId) {
+            if (i > endIdx) endIdx = i;
+            collectDescendants(prev[i].id);
+          }
+        }
+      };
+      collectDescendants(lastSelectedId);
+      
       const result = [...prev];
-      result.splice(insertIdx + 1, 0, ...newTasks);
+      result.splice(endIdx + 1, 0, ...newTasks);
       return result;
     });
     const newIds = new Set(newTasks.map(t => t.id));
