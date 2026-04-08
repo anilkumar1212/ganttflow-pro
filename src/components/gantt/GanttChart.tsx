@@ -132,6 +132,21 @@ export function GanttChart() {
     if (clipboard.length === 0) return;
     let maxId = Math.max(0, ...tasks.map(t => t.id));
     const idMap = new Map<number, number>();
+    const clipboardIds = new Set(clipboard.map(t => t.id));
+    const copiedRootIds = new Set(
+      clipboard
+        .filter(t => t.parentId === null || !clipboardIds.has(t.parentId))
+        .map(t => t.id)
+    );
+
+    const getCopiedRootId = (task: GanttTask) => {
+      let current: GanttTask | undefined = task;
+      while (current && current.parentId !== null && clipboardIds.has(current.parentId)) {
+        current = clipboard.find(candidate => candidate.id === current?.parentId);
+      }
+      return current?.id ?? task.id;
+    };
+
     const newTasks: GanttTask[] = clipboard.map(t => {
       maxId += 1;
       idMap.set(t.id, maxId);
@@ -145,54 +160,53 @@ export function GanttChart() {
         resources: [...t.resources],
       };
     });
-    // Remap parentIds within the copied set
-    newTasks.forEach(nt => {
-      if (nt.parentId !== null && idMap.has(nt.parentId)) {
-        nt.parentId = idMap.get(nt.parentId)!;
-      } else {
-        if (nt.parentId !== null && !tasks.find(t => t.id === nt.parentId)) {
-          nt.parentId = null;
-          nt.level = 0;
-        }
-      }
-    });
-    // Remap internal dependencies
-    newTasks.forEach(nt => {
-      const orig = clipboard.find(c => idMap.get(c.id) === nt.id);
-      if (orig) {
-        nt.dependencies = orig.dependencies
-          .filter(d => idMap.has(d.predecessorId))
-          .map(d => ({ ...d, predecessorId: idMap.get(d.predecessorId)! }));
-      }
-    });
 
-    // Insert after the bottom-most selected visible row and its descendant block
     updateTasks(prev => {
-      if (selectedTaskIds.size === 0) return [...prev, ...newTasks];
-
       const flatPrev = flattenTasks(prev);
       const lastSelectedFlatIndex = flatPrev.reduce(
         (lastIndex, task, index) => (selectedTaskIds.has(task.id) ? index : lastIndex),
         -1,
       );
 
-      if (lastSelectedFlatIndex === -1) return [...prev, ...newTasks];
+      const anchorTask = lastSelectedFlatIndex >= 0 ? flatPrev[lastSelectedFlatIndex] : null;
+      const targetParentId = anchorTask?.parentId ?? null;
+      const targetLevel = anchorTask?.level ?? 0;
 
-      const anchorTask = flatPrev[lastSelectedFlatIndex];
-      const parentMap = new Map(prev.map(task => [task.id, task.parentId]));
-      const isDescendantOf = (taskId: number, ancestorId: number) => {
-        let currentParentId = parentMap.get(taskId) ?? null;
-        while (currentParentId !== null) {
-          if (currentParentId === ancestorId) return true;
-          currentParentId = parentMap.get(currentParentId) ?? null;
+      const adjustedNewTasks = newTasks.map(task => {
+        const originalTask = clipboard.find(item => idMap.get(item.id) === task.id)!;
+        const originalRootId = getCopiedRootId(originalTask);
+        const originalRoot = clipboard.find(item => item.id === originalRootId)!;
+        const levelOffset = targetLevel - originalRoot.level;
+
+        if (originalTask.parentId !== null && idMap.has(originalTask.parentId)) {
+          return {
+            ...task,
+            parentId: idMap.get(originalTask.parentId)!,
+            level: Math.max(0, originalTask.level + levelOffset),
+          };
         }
-        return false;
-      };
+
+        return {
+          ...task,
+          parentId: targetParentId,
+          level: Math.max(0, targetLevel),
+        };
+      }).map(task => {
+        const originalTask = clipboard.find(item => idMap.get(item.id) === task.id)!;
+        return {
+          ...task,
+          dependencies: originalTask.dependencies
+            .filter(dep => idMap.has(dep.predecessorId))
+            .map(dep => ({ ...dep, predecessorId: idMap.get(dep.predecessorId)! })),
+        };
+      });
+
+      if (!anchorTask) return [...prev, ...adjustedNewTasks];
 
       let blockEndFlatIndex = lastSelectedFlatIndex;
       while (
         blockEndFlatIndex + 1 < flatPrev.length &&
-        isDescendantOf(flatPrev[blockEndFlatIndex + 1].id, anchorTask.id)
+        flatPrev[blockEndFlatIndex + 1].level > anchorTask.level
       ) {
         blockEndFlatIndex += 1;
       }
@@ -203,9 +217,10 @@ export function GanttChart() {
         : prev.length;
 
       const result = [...prev];
-      result.splice(insertIdx, 0, ...newTasks);
+      result.splice(insertIdx, 0, ...adjustedNewTasks);
       return result;
     });
+
     const newIds = new Set(newTasks.map(t => t.id));
     setSelectedTaskIds(newIds);
     toast({ title: 'Pasted', description: `${newTasks.length} task(s) pasted` });
