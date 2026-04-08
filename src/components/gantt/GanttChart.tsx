@@ -166,27 +166,44 @@ export function GanttChart() {
       }
     });
 
-    // Insert after the last selected row (and all its descendants)
+    // Insert after the bottom-most selected visible row and its descendant block
     updateTasks(prev => {
       if (selectedTaskIds.size === 0) return [...prev, ...newTasks];
-      const lastSelectedId = [...selectedTaskIds].pop()!;
-      const insertIdx = prev.findIndex(t => t.id === lastSelectedId);
-      if (insertIdx === -1) return [...prev, ...newTasks];
-      
-      // Find the end of the selected task's descendant block
-      let endIdx = insertIdx;
-      const collectDescendants = (parentId: number) => {
-        for (let i = 0; i < prev.length; i++) {
-          if (prev[i].parentId === parentId) {
-            if (i > endIdx) endIdx = i;
-            collectDescendants(prev[i].id);
-          }
+
+      const flatPrev = flattenTasks(prev);
+      const lastSelectedFlatIndex = flatPrev.reduce(
+        (lastIndex, task, index) => (selectedTaskIds.has(task.id) ? index : lastIndex),
+        -1,
+      );
+
+      if (lastSelectedFlatIndex === -1) return [...prev, ...newTasks];
+
+      const anchorTask = flatPrev[lastSelectedFlatIndex];
+      const parentMap = new Map(prev.map(task => [task.id, task.parentId]));
+      const isDescendantOf = (taskId: number, ancestorId: number) => {
+        let currentParentId = parentMap.get(taskId) ?? null;
+        while (currentParentId !== null) {
+          if (currentParentId === ancestorId) return true;
+          currentParentId = parentMap.get(currentParentId) ?? null;
         }
+        return false;
       };
-      collectDescendants(lastSelectedId);
-      
+
+      let blockEndFlatIndex = lastSelectedFlatIndex;
+      while (
+        blockEndFlatIndex + 1 < flatPrev.length &&
+        isDescendantOf(flatPrev[blockEndFlatIndex + 1].id, anchorTask.id)
+      ) {
+        blockEndFlatIndex += 1;
+      }
+
+      const nextFlatTask = flatPrev[blockEndFlatIndex + 1];
+      const insertIdx = nextFlatTask
+        ? prev.findIndex(task => task.id === nextFlatTask.id)
+        : prev.length;
+
       const result = [...prev];
-      result.splice(endIdx + 1, 0, ...newTasks);
+      result.splice(insertIdx, 0, ...newTasks);
       return result;
     });
     const newIds = new Set(newTasks.map(t => t.id));
