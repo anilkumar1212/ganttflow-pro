@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { Resource } from '@/lib/gantt-types';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ResourcePanelProps {
@@ -26,40 +24,38 @@ export function ResourcePanel({ resources, onAddResource, onDeleteResource }: Re
   };
 
   return (
-    <div className="w-72 border-l bg-card p-4 overflow-auto gantt-scrollbar">
-      <h3 className="text-sm font-semibold mb-3">Team Resources</h3>
+    <div className="resource-panel gantt-scrollbar">
+      <h3 className="resource-panel-title">Team Resources</h3>
 
-      <div className="flex gap-2 mb-4">
-        <Input
+      <div className="resource-panel-add">
+        <input
+          className="input"
           placeholder="New resource name..."
           value={newName}
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          className="h-8 text-xs"
         />
-        <Button size="sm" onClick={handleAdd} className="h-8 px-2 shrink-0">
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
+        <button className="btn btn-primary btn-sm" onClick={handleAdd}>
+          <Plus />
+        </button>
       </div>
 
-      <div className="space-y-2">
+      <div className="resource-list">
         {resources.map(r => (
-          <div key={r.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 group">
+          <div key={r.id} className="resource-item">
             <span
-              className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[10px] font-bold text-primary-foreground shrink-0"
+              className="resource-avatar resource-avatar-lg"
               style={{ backgroundColor: r.color }}
             >
               {r.name.split(' ').map(w => w[0]).join('')}
             </span>
-            <span className="text-xs font-medium flex-1 truncate">{r.name}</span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            <span className="resource-item-name">{r.name}</span>
+            <button
+              className="resource-delete-btn"
               onClick={() => onDeleteResource(r.id)}
             >
-              <Trash2 className="h-3 w-3 text-destructive" />
-            </Button>
+              <Trash2 />
+            </button>
           </div>
         ))}
       </div>
