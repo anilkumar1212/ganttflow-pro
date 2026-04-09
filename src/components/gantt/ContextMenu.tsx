@@ -35,18 +35,16 @@ export function GanttContextMenu({ x, y, onClose, onDelete, onSetProgress, onAdd
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-popover border rounded-md shadow-lg py-1 min-w-[180px]"
+      className="context-menu"
       style={{ left: x, top: y }}
     >
       {items.map((item, i) =>
         item.label === '—' ? (
-          <div key={i} className="h-px bg-border mx-2 my-1" />
+          <div key={i} className="context-menu-separator" />
         ) : (
           <button
             key={i}
-            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors ${
-              item.destructive ? 'text-destructive' : 'text-popover-foreground'
-            }`}
+            className={`context-menu-item${item.destructive ? ' destructive' : ''}`}
             onClick={() => { item.action(); onClose(); }}
           >
             {item.label}

@@ -77,24 +77,22 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
   const editableFields = ['name', 'start', 'end', 'duration', 'progress', 'predecessors'];
 
   return (
-    <div className="flex flex-col h-full bg-card gantt-scrollbar overflow-auto">
-      {/* Header - 2 rows to match timeline month+day headers */}
-      <div className="sticky top-0 z-10 flex flex-col" style={{ minWidth: totalWidth }}>
-        {/* Top row (matches month header) */}
-        <div className="flex bg-gantt-header" style={{ minWidth: totalWidth }}>
+    <div className="treegrid gantt-scrollbar">
+      {/* Header */}
+      <div className="treegrid-sticky-header" style={{ minWidth: totalWidth }}>
+        <div className="treegrid-header-top" style={{ minWidth: totalWidth }}>
           <div
-            className="flex items-center px-3 text-xs font-semibold text-gantt-header-foreground"
+            className="treegrid-header-top-cell"
             style={{ width: totalWidth, height: rowHeight }}
           >
             Task Details
           </div>
         </div>
-        {/* Bottom row (matches day header) */}
-        <div className="flex bg-gantt-header/85" style={{ minWidth: totalWidth }}>
+        <div className="treegrid-header-bottom" style={{ minWidth: totalWidth }}>
           {columns.map(col => (
             <div
               key={col.key}
-              className="flex items-center px-2 text-[9px] font-semibold text-gantt-header-foreground/80 border-r border-gantt-header-foreground/10 shrink-0"
+              className="treegrid-header-col"
               style={{ width: col.width, height: rowHeight }}
             >
               {col.label}
@@ -110,19 +108,16 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
         const isHighlighted = highlightTaskId === task.id;
         const isSelected = selectedTaskIds.has(task.id);
 
+        let rowClass = 'treegrid-row';
+        if (isHighlighted) rowClass += ' highlighted';
+        else if (isSelected) rowClass += ' selected';
+        else if (isCritical) rowClass += ' critical';
+
         return (
           <div
             key={task.id}
             data-task-id={task.id}
-            className={`flex border-b cursor-pointer transition-all ${
-              isHighlighted
-                ? 'bg-accent ring-2 ring-inset ring-primary'
-                : isSelected
-                ? 'bg-gantt-row-selected'
-                : isCritical
-                ? 'bg-destructive/5 border-destructive/20'
-                : 'hover:bg-gantt-row-hover border-gantt-grid-line'
-            }`}
+            className={rowClass}
             style={{ minWidth: totalWidth, height: rowHeight, minHeight: rowHeight, maxHeight: rowHeight, boxSizing: 'border-box' }}
             onClick={(e) => onSelectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey)}
             onContextMenu={e => { e.preventDefault(); onSelectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey); }}
@@ -133,21 +128,21 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
               return (
                 <div
                   key={col.key}
-                  className="flex items-center px-2 text-xs border-r border-gantt-grid-line shrink-0 overflow-hidden"
+                  className="treegrid-cell"
                   style={{ width: col.width }}
                   onDoubleClick={() => editableFields.includes(col.key) && startEdit(task.id, col.key)}
                 >
                   {col.key === 'name' ? (
-                    <div className="flex items-center gap-1 w-full" style={{ paddingLeft: task.level * 16 }}>
+                    <div className="treegrid-name-content" style={{ paddingLeft: task.level * 16 }}>
                       {task.hasChildren ? (
                         <button
                           onClick={e => { e.stopPropagation(); onToggleExpand(task.id); }}
-                          className="p-0.5 rounded hover:bg-accent shrink-0"
+                          className="treegrid-expand-btn"
                         >
-                          {task.expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                          {task.expanded ? <ChevronDown /> : <ChevronRight />}
                         </button>
                       ) : (
-                        <span className="w-4 shrink-0" />
+                        <span className="treegrid-indent-spacer" />
                       )}
                       {isEditing ? (
                         <input
@@ -155,11 +150,11 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
                           defaultValue={getCellValue(task, col.key)}
                           onBlur={e => commitEdit(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') commitEdit((e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingCell(null); }}
-                          className="flex-1 bg-background border border-ring rounded px-1 py-0.5 text-xs outline-none min-w-0"
+                          className="treegrid-inline-input"
                           onClick={e => e.stopPropagation()}
                         />
                       ) : (
-                        <span className={`truncate ${task.hasChildren ? 'font-semibold' : ''} ${isCritical ? 'text-destructive font-medium' : ''}`}>
+                        <span className={`treegrid-name${task.hasChildren ? ' parent' : ''}${isCritical ? ' critical' : ''}`}>
                           {task.name}
                         </span>
                       )}
@@ -182,11 +177,12 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
                       type={['start', 'end'].includes(col.key) ? 'date' : 'text'}
                       onBlur={e => commitEdit(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') commitEdit((e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingCell(null); }}
-                      className="w-full bg-background border border-ring rounded px-1 py-0.5 text-xs outline-none"
+                      className="treegrid-inline-input"
+                      style={{ width: '100%' }}
                       onClick={e => e.stopPropagation()}
                     />
                   ) : (
-                    <span className={`truncate ${col.key === 'id' ? 'text-muted-foreground font-mono' : ''}`}>
+                    <span className={`treegrid-cell-text${col.key === 'id' ? ' treegrid-cell-id' : ''}`}>
                       {getDisplayValue(task, col.key)}
                     </span>
                   )}
