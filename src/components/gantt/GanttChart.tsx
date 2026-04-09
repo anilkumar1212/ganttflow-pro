@@ -252,7 +252,18 @@ export function GanttChart() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const selected = firstSelectedId !== null ? tasks.find(t => t.id === firstSelectedId) : null;
+    // Find the bottom-most selected row in visual order
+    const flatPrev = flattenTasks(tasks);
+    let anchorTask: FlatTask | null = null;
+    if (selectedTaskIds.size > 0) {
+      for (let i = flatPrev.length - 1; i >= 0; i--) {
+        if (selectedTaskIds.has(flatPrev[i].id)) {
+          anchorTask = flatPrev[i];
+          break;
+        }
+      }
+    }
+
     const newTask: GanttTask = {
       id: maxId + 1,
       name: 'New Task',
@@ -261,14 +272,48 @@ export function GanttChart() {
       progress: 0,
       resources: [],
       dependencies: [],
-      parentId: selected ? selected.parentId : null,
+      parentId: anchorTask ? anchorTask.parentId : null,
       expanded: false,
-      level: selected ? selected.level : 0,
+      level: anchorTask ? anchorTask.level : 0,
     };
-    updateTasks(prev => [...prev, newTask]);
+
+    updateTasks(prev => {
+      if (!anchorTask) return [...prev, newTask];
+
+      // Find anchor in source array and skip past its descendants
+      const anchorIdx = prev.findIndex(t => t.id === anchorTask!.id);
+      if (anchorIdx === -1) return [...prev, newTask];
+
+      // Collect all descendants of the anchor task
+      const descendantIds = new Set<number>();
+      const collectDescendants = (parentId: number) => {
+        prev.forEach(t => {
+          if (t.parentId === parentId) {
+            descendantIds.add(t.id);
+            collectDescendants(t.id);
+          }
+        });
+      };
+      collectDescendants(anchorTask!.id);
+
+      // Find the last descendant's index
+      let insertIdx = anchorIdx + 1;
+      for (let i = anchorIdx + 1; i < prev.length; i++) {
+        if (descendantIds.has(prev[i].id)) {
+          insertIdx = i + 1;
+        } else {
+          break;
+        }
+      }
+
+      const result = [...prev];
+      result.splice(insertIdx, 0, newTask);
+      return result;
+    });
+
     setSelectedTaskIds(new Set([maxId + 1]));
     setTimeout(() => scrollToTask(maxId + 1), 100);
-  }, [tasks, updateTasks, firstSelectedId, scrollToTask]);
+  }, [tasks, updateTasks, selectedTaskIds, scrollToTask]);
 
   const addParallelTask = useCallback((refTaskId: number) => {
     const refTask = tasks.find(t => t.id === refTaskId);
