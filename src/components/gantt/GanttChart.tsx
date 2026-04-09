@@ -7,7 +7,7 @@ import { TreeGrid } from './TreeGrid';
 import { TimelineChart } from './TimelineChart';
 import { ResourcePanel, COLORS } from './ResourcePanel';
 import { GanttContextMenu } from './ContextMenu';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast-simple';
 
 const ROW_HEIGHT = 36;
 const DAY_WIDTH = 28;
@@ -32,12 +32,10 @@ export function GanttChart() {
 
   const firstSelectedId = selectedTaskIds.size > 0 ? [...selectedTaskIds][0] : null;
 
-  // Sync vertical scroll
   useEffect(() => {
     const treeSec = treeScrollRef.current;
     const timelineSec = timelineScrollRef.current;
     if (!treeSec || !timelineSec) return;
-
     let syncing = false;
     const syncScroll = (source: HTMLElement, target: HTMLElement) => () => {
       if (syncing) return;
@@ -45,7 +43,6 @@ export function GanttChart() {
       target.scrollTop = source.scrollTop;
       syncing = false;
     };
-
     const treeHandler = syncScroll(treeSec, timelineSec);
     const timelineHandler = syncScroll(timelineSec, treeSec);
     treeSec.addEventListener('scroll', treeHandler);
@@ -56,20 +53,17 @@ export function GanttChart() {
     };
   }, []);
 
-  // Flatten and filter tasks
   const flatTasks = flattenTasks(tasks).map(t => ({
     ...t,
     visible: t.visible && (searchQuery === '' || t.name.toLowerCase().includes(searchQuery.toLowerCase())),
   }));
 
-  // CPM calculation
   const cpmResults = useMemo(() => calculateCriticalPath(tasks), [tasks]);
 
   const updateTasks = useCallback((updater: (prev: GanttTask[]) => GanttTask[]) => {
     setTasks(prev => rollupParentDates(updater(prev)));
   }, []);
 
-  // Auto-scroll to newly created task
   const scrollToTask = useCallback((taskId: number) => {
     setHighlightTaskId(taskId);
     setTimeout(() => {
@@ -82,16 +76,11 @@ export function GanttChart() {
     setTimeout(() => setHighlightTaskId(null), 1500);
   }, [tasks]);
 
-  // Select handler for single click from timeline
   const handleSelectTask = useCallback((id: number | null) => {
-    if (id === null) {
-      setSelectedTaskIds(new Set());
-    } else {
-      setSelectedTaskIds(new Set([id]));
-    }
+    if (id === null) setSelectedTaskIds(new Set());
+    else setSelectedTaskIds(new Set([id]));
   }, []);
 
-  // Multi-select handler from TreeGrid
   const handleMultiSelect = useCallback((id: number, ctrlKey: boolean, shiftKey: boolean) => {
     setSelectedTaskIds(prev => {
       if (shiftKey && prev.size > 0) {
@@ -109,18 +98,14 @@ export function GanttChart() {
       }
       if (ctrlKey) {
         const next = new Set(prev);
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
         return next;
       }
       return new Set([id]);
     });
   }, [flatTasks]);
 
-  // Copy & Paste
   const copySelectedTasks = useCallback(() => {
     if (selectedTaskIds.size === 0) return;
     const selectedTasks = tasks.filter(t => selectedTaskIds.has(t.id));
@@ -134,9 +119,7 @@ export function GanttChart() {
     const idMap = new Map<number, number>();
     const clipboardIds = new Set(clipboard.map(t => t.id));
     const copiedRootIds = new Set(
-      clipboard
-        .filter(t => t.parentId === null || !clipboardIds.has(t.parentId))
-        .map(t => t.id)
+      clipboard.filter(t => t.parentId === null || !clipboardIds.has(t.parentId)).map(t => t.id)
     );
 
     const getCopiedRootId = (task: GanttTask) => {
@@ -150,24 +133,14 @@ export function GanttChart() {
     const newTasks: GanttTask[] = clipboard.map(t => {
       maxId += 1;
       idMap.set(t.id, maxId);
-      return {
-        ...t,
-        id: maxId,
-        name: `${t.name} (copy)`,
-        start: new Date(t.start),
-        end: new Date(t.end),
-        dependencies: [],
-        resources: [...t.resources],
-      };
+      return { ...t, id: maxId, name: `${t.name} (copy)`, start: new Date(t.start), end: new Date(t.end), dependencies: [], resources: [...t.resources] };
     });
 
     updateTasks(prev => {
       const flatPrev = flattenTasks(prev);
       const lastSelectedFlatIndex = flatPrev.reduce(
-        (lastIndex, task, index) => (selectedTaskIds.has(task.id) ? index : lastIndex),
-        -1,
+        (lastIndex, task, index) => (selectedTaskIds.has(task.id) ? index : lastIndex), -1
       );
-
       const anchorTask = lastSelectedFlatIndex >= 0 ? flatPrev[lastSelectedFlatIndex] : null;
       const targetParentId = anchorTask?.parentId ?? null;
       const targetLevel = anchorTask?.level ?? 0;
@@ -177,20 +150,10 @@ export function GanttChart() {
         const originalRootId = getCopiedRootId(originalTask);
         const originalRoot = clipboard.find(item => item.id === originalRootId)!;
         const levelOffset = targetLevel - originalRoot.level;
-
         if (originalTask.parentId !== null && idMap.has(originalTask.parentId)) {
-          return {
-            ...task,
-            parentId: idMap.get(originalTask.parentId)!,
-            level: Math.max(0, originalTask.level + levelOffset),
-          };
+          return { ...task, parentId: idMap.get(originalTask.parentId)!, level: Math.max(0, originalTask.level + levelOffset) };
         }
-
-        return {
-          ...task,
-          parentId: targetParentId,
-          level: Math.max(0, targetLevel),
-        };
+        return { ...task, parentId: targetParentId, level: Math.max(0, targetLevel) };
       }).map(task => {
         const originalTask = clipboard.find(item => idMap.get(item.id) === task.id)!;
         return {
@@ -204,18 +167,11 @@ export function GanttChart() {
       if (!anchorTask) return [...prev, ...adjustedNewTasks];
 
       let blockEndFlatIndex = lastSelectedFlatIndex;
-      while (
-        blockEndFlatIndex + 1 < flatPrev.length &&
-        flatPrev[blockEndFlatIndex + 1].level > anchorTask.level
-      ) {
+      while (blockEndFlatIndex + 1 < flatPrev.length && flatPrev[blockEndFlatIndex + 1].level > anchorTask.level) {
         blockEndFlatIndex += 1;
       }
-
       const nextFlatTask = flatPrev[blockEndFlatIndex + 1];
-      const insertIdx = nextFlatTask
-        ? prev.findIndex(task => task.id === nextFlatTask.id)
-        : prev.length;
-
+      const insertIdx = nextFlatTask ? prev.findIndex(task => task.id === nextFlatTask.id) : prev.length;
       const result = [...prev];
       result.splice(insertIdx, 0, ...adjustedNewTasks);
       return result;
@@ -226,7 +182,6 @@ export function GanttChart() {
     toast({ title: 'Pasted', description: `${newTasks.length} task(s) pasted` });
   }, [clipboard, tasks, selectedTaskIds, updateTasks, toast]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
@@ -246,71 +201,41 @@ export function GanttChart() {
     return () => window.removeEventListener('keydown', handler);
   }, [copySelectedTasks, pasteClipboard]);
 
-  // Task operations
   const addTask = useCallback(() => {
     const maxId = Math.max(0, ...tasks.map(t => t.id));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    // Find the bottom-most selected row in visual order
     const flatPrev = flattenTasks(tasks);
     let anchorTask: FlatTask | null = null;
     if (selectedTaskIds.size > 0) {
       for (let i = flatPrev.length - 1; i >= 0; i--) {
-        if (selectedTaskIds.has(flatPrev[i].id)) {
-          anchorTask = flatPrev[i];
-          break;
-        }
+        if (selectedTaskIds.has(flatPrev[i].id)) { anchorTask = flatPrev[i]; break; }
       }
     }
-
     const newTask: GanttTask = {
-      id: maxId + 1,
-      name: 'New Task',
-      start: today,
-      end: addDays(today, 5),
-      progress: 0,
-      resources: [],
-      dependencies: [],
+      id: maxId + 1, name: 'New Task', start: today, end: addDays(today, 5),
+      progress: 0, resources: [], dependencies: [],
       parentId: anchorTask ? anchorTask.parentId : null,
-      expanded: false,
-      level: anchorTask ? anchorTask.level : 0,
+      expanded: false, level: anchorTask ? anchorTask.level : 0,
     };
-
     updateTasks(prev => {
       if (!anchorTask) return [...prev, newTask];
-
-      // Find anchor in source array and skip past its descendants
       const anchorIdx = prev.findIndex(t => t.id === anchorTask!.id);
       if (anchorIdx === -1) return [...prev, newTask];
-
-      // Collect all descendants of the anchor task
       const descendantIds = new Set<number>();
       const collectDescendants = (parentId: number) => {
-        prev.forEach(t => {
-          if (t.parentId === parentId) {
-            descendantIds.add(t.id);
-            collectDescendants(t.id);
-          }
-        });
+        prev.forEach(t => { if (t.parentId === parentId) { descendantIds.add(t.id); collectDescendants(t.id); } });
       };
       collectDescendants(anchorTask!.id);
-
-      // Find the last descendant's index
       let insertIdx = anchorIdx + 1;
       for (let i = anchorIdx + 1; i < prev.length; i++) {
-        if (descendantIds.has(prev[i].id)) {
-          insertIdx = i + 1;
-        } else {
-          break;
-        }
+        if (descendantIds.has(prev[i].id)) insertIdx = i + 1;
+        else break;
       }
-
       const result = [...prev];
       result.splice(insertIdx, 0, newTask);
       return result;
     });
-
     setSelectedTaskIds(new Set([maxId + 1]));
     setTimeout(() => scrollToTask(maxId + 1), 100);
   }, [tasks, updateTasks, selectedTaskIds, scrollToTask]);
@@ -319,19 +244,10 @@ export function GanttChart() {
     const refTask = tasks.find(t => t.id === refTaskId);
     if (!refTask) return;
     const maxId = Math.max(0, ...tasks.map(t => t.id));
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const newTask: GanttTask = {
-      id: maxId + 1,
-      name: 'New Parallel Task',
-      start: today,
-      end: addDays(today, 5),
-      progress: 0,
-      resources: [],
-      dependencies: [],
-      parentId: refTask.parentId,
-      expanded: false,
-      level: refTask.level,
+      id: maxId + 1, name: 'New Parallel Task', start: today, end: addDays(today, 5),
+      progress: 0, resources: [], dependencies: [], parentId: refTask.parentId, expanded: false, level: refTask.level,
     };
     updateTasks(prev => [...prev, newTask]);
     setSelectedTaskIds(new Set([maxId + 1]));
@@ -342,19 +258,10 @@ export function GanttChart() {
     const maxId = Math.max(0, ...tasks.map(t => t.id));
     const parent = tasks.find(t => t.id === parentTaskId);
     if (!parent) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const newTask: GanttTask = {
-      id: maxId + 1,
-      name: 'New Sub-task',
-      start: today,
-      end: addDays(today, 3),
-      progress: 0,
-      resources: [],
-      dependencies: [],
-      parentId: parentTaskId,
-      expanded: false,
-      level: parent.level + 1,
+      id: maxId + 1, name: 'New Sub-task', start: today, end: addDays(today, 3),
+      progress: 0, resources: [], dependencies: [], parentId: parentTaskId, expanded: false, level: parent.level + 1,
     };
     updateTasks(prev => prev.map(t => t.id === parentTaskId ? { ...t, expanded: true } : t).concat(newTask));
     setSelectedTaskIds(new Set([maxId + 1]));
@@ -371,12 +278,9 @@ export function GanttChart() {
         prev.filter(t => t.parentId === id).forEach(c => collectIds(c.id));
       }
       idsToProcess.forEach(id => collectIds(id));
-      return prev
-        .filter(t => !idsToRemove.has(t.id))
-        .map(t => ({
-          ...t,
-          dependencies: t.dependencies.filter(d => !idsToRemove.has(d.predecessorId)),
-        }));
+      return prev.filter(t => !idsToRemove.has(t.id)).map(t => ({
+        ...t, dependencies: t.dependencies.filter(d => !idsToRemove.has(d.predecessorId)),
+      }));
     });
     setSelectedTaskIds(prev => {
       const next = new Set(prev);
@@ -413,13 +317,8 @@ export function GanttChart() {
     }));
   }, [firstSelectedId, tasks, updateTasks]);
 
-  const expandAll = useCallback(() => {
-    updateTasks(prev => prev.map(t => ({ ...t, expanded: true })));
-  }, [updateTasks]);
-
-  const collapseAll = useCallback(() => {
-    updateTasks(prev => prev.map(t => ({ ...t, expanded: false })));
-  }, [updateTasks]);
+  const expandAll = useCallback(() => { updateTasks(prev => prev.map(t => ({ ...t, expanded: true }))); }, [updateTasks]);
+  const collapseAll = useCallback(() => { updateTasks(prev => prev.map(t => ({ ...t, expanded: false }))); }, [updateTasks]);
 
   const toggleExpand = useCallback((id: number) => {
     updateTasks(prev => prev.map(t => t.id === id ? { ...t, expanded: !t.expanded } : t));
@@ -430,27 +329,10 @@ export function GanttChart() {
       if (t.id !== id) return t;
       switch (field) {
         case 'name': return { ...t, name: value };
-        case 'start': {
-          const d = new Date(value + 'T00:00:00');
-          if (isNaN(d.getTime())) return t;
-          const dur = getDuration(t.start, t.end);
-          return { ...t, start: d, end: addDays(d, dur) };
-        }
-        case 'end': {
-          const d = new Date(value + 'T00:00:00');
-          if (isNaN(d.getTime()) || d <= t.start) return t;
-          return { ...t, end: d };
-        }
-        case 'duration': {
-          const dur = parseInt(value);
-          if (isNaN(dur) || dur < 1) return t;
-          return { ...t, end: addDays(t.start, dur) };
-        }
-        case 'progress': {
-          const p = parseInt(value);
-          if (isNaN(p)) return t;
-          return { ...t, progress: Math.max(0, Math.min(100, p)) };
-        }
+        case 'start': { const d = new Date(value + 'T00:00:00'); if (isNaN(d.getTime())) return t; const dur = getDuration(t.start, t.end); return { ...t, start: d, end: addDays(d, dur) }; }
+        case 'end': { const d = new Date(value + 'T00:00:00'); if (isNaN(d.getTime()) || d <= t.start) return t; return { ...t, end: d }; }
+        case 'duration': { const dur = parseInt(value); if (isNaN(dur) || dur < 1) return t; return { ...t, end: addDays(t.start, dur) }; }
+        case 'progress': { const p = parseInt(value); if (isNaN(p)) return t; return { ...t, progress: Math.max(0, Math.min(100, p)) }; }
         case 'predecessors': {
           const newDeps = parsePredecessorString(value);
           if (hasCircularDependency(prev, id, newDeps)) {
@@ -477,10 +359,7 @@ export function GanttChart() {
   }, [updateTasks]);
 
   const resizeTask = useCallback((id: number, newEnd: Date) => {
-    updateTasks(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      return { ...t, end: newEnd };
-    }));
+    updateTasks(prev => prev.map(t => t.id !== id ? t : { ...t, end: newEnd }));
   }, [updateTasks]);
 
   const addResource = useCallback((name: string) => {
@@ -493,7 +372,6 @@ export function GanttChart() {
     updateTasks(prev => prev.map(t => ({ ...t, resources: t.resources.filter(r => r !== id) })));
   }, [updateTasks]);
 
-  // Divider drag
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dividerDragging.current) return;
@@ -509,7 +387,7 @@ export function GanttChart() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="gantt-app">
       <GanttToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -526,9 +404,8 @@ export function GanttChart() {
         onToggleCriticalPath={setShowCriticalPath}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* TreeGrid */}
-        <div ref={treeScrollRef} style={{ width: dividerX }} className="overflow-auto gantt-scrollbar shrink-0">
+      <div className="gantt-content">
+        <div ref={treeScrollRef} style={{ width: dividerX, overflow: 'auto', flexShrink: 0 }} className="gantt-scrollbar">
           <TreeGrid
             tasks={flatTasks}
             resources={resources}
@@ -544,14 +421,12 @@ export function GanttChart() {
           />
         </div>
 
-        {/* Divider */}
         <div
-          className="w-1 bg-border hover:bg-primary/30 cursor-col-resize shrink-0 transition-colors"
+          className="gantt-divider"
           onMouseDown={() => { dividerDragging.current = true; }}
         />
 
-        {/* Timeline */}
-        <div ref={timelineScrollRef} className="flex-1 overflow-auto gantt-scrollbar">
+        <div ref={timelineScrollRef} style={{ flex: 1, overflow: 'auto' }} className="gantt-scrollbar">
           <TimelineChart
             tasks={flatTasks}
             resources={resources}
@@ -567,7 +442,6 @@ export function GanttChart() {
           />
         </div>
 
-        {/* Resources panel */}
         {showResources && (
           <ResourcePanel
             resources={resources}
@@ -577,7 +451,6 @@ export function GanttChart() {
         )}
       </div>
 
-      {/* Context Menu */}
       {contextMenu && (
         <GanttContextMenu
           x={contextMenu.x}
