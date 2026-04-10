@@ -16,7 +16,7 @@ export function ResourceSelect({ resources, selected, onChange }: ResourceSelect
   return (
     <SimplePopover
       trigger={
-        <button className="resource-select-trigger" onClick={e => e.stopPropagation()}>
+        <button className="resource-select-trigger">
           {selected.length === 0 ? (
             <span className="resource-select-empty">
               <UserPlus />
