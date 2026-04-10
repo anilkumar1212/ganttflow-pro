@@ -452,7 +452,8 @@ body {
   font-size: 12px;
   border-right: 1px solid var(--gantt-grid-line);
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .treegrid-name-content {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ControlledPopover } from '@/components/SimplePopover';
 
 interface ProgressEditorProps {
@@ -8,10 +8,14 @@ interface ProgressEditorProps {
 
 export function ProgressEditor({ progress, onChange }: ProgressEditorProps) {
   const [open, setOpen] = useState(false);
-  const [localValue, setLocalValue] = useState(progress);
+  const [localValue, setLocalValue] = useState(progress ?? 0);
+
+  useEffect(() => {
+    setLocalValue(progress ?? 0);
+  }, [progress]);
 
   const handleOpen = (isOpen: boolean) => {
-    if (isOpen) setLocalValue(progress);
+    if (isOpen) setLocalValue(progress ?? 0);
     setOpen(isOpen);
   };
 
@@ -27,8 +31,9 @@ export function ProgressEditor({ progress, onChange }: ProgressEditorProps) {
     <ControlledPopover
       open={open}
       onOpenChange={handleOpen}
+      className="progress-popover"
       trigger={
-        <button className="progress-trigger">
+        <button type="button" className="progress-trigger">
           <div className="progress-bar-bg">
             <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
           </div>
@@ -46,10 +51,11 @@ export function ProgressEditor({ progress, onChange }: ProgressEditorProps) {
             max={100}
             value={localValue}
             onChange={e => {
-              const v = parseInt(e.target.value);
-              setLocalValue(isNaN(v) ? 0 : v);
+              const nextValue = clamp(parseInt(e.target.value));
+              setLocalValue(nextValue);
+              onChange(nextValue);
             }}
-            onBlur={() => commit(localValue)}
+            onBlur={() => setLocalValue(clamp(localValue))}
             onKeyDown={e => { if (e.key === 'Enter') commit(localValue); }}
             className="input input-sm progress-popover-input"
           />
@@ -62,7 +68,11 @@ export function ProgressEditor({ progress, onChange }: ProgressEditorProps) {
           max={100}
           step={1}
           value={localValue}
-          onChange={e => { const v = parseInt(e.target.value); setLocalValue(v); commit(v); }}
+          onChange={e => {
+            const v = clamp(parseInt(e.target.value));
+            setLocalValue(v);
+            onChange(v);
+          }}
         />
         <div className="progress-popover-ticks">
           <span>0%</span>
