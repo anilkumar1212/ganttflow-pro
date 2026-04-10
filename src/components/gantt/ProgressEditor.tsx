@@ -28,7 +28,7 @@ export function ProgressEditor({ progress, onChange }: ProgressEditorProps) {
       open={open}
       onOpenChange={handleOpen}
       trigger={
-        <button className="progress-trigger" onClick={e => e.stopPropagation()}>
+        <button className="progress-trigger">
           <div className="progress-bar-bg">
             <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
           </div>
