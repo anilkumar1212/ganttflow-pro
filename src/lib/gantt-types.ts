@@ -57,7 +57,7 @@ export function dependencyToString(deps: Dependency[]): string {
 }
 
 export function getDuration(start: Date, end: Date): number {
-  return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
 }
 
 export function addDays(date: Date, days: number): Date {

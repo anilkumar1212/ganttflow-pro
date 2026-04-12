@@ -20,7 +20,7 @@ export function DurationEditor({ duration, disabled, onChange }: DurationEditorP
     if (editing) inputRef.current?.focus();
   }, [editing]);
 
-  const clamp = (v: number) => Math.max(1, isNaN(v) ? 1 : Math.round(v));
+  const clamp = (v: number) => Math.max(0, isNaN(v) ? 0 : Math.round(v));
 
   const commit = (v: number) => {
     const clamped = clamp(v);
@@ -45,7 +45,7 @@ export function DurationEditor({ duration, disabled, onChange }: DurationEditorP
         <input
           ref={inputRef}
           type="number"
-          min={1}
+          min={0}
           className="duration-input"
           value={localValue}
           onChange={e => {
