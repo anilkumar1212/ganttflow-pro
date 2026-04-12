@@ -75,7 +75,7 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
     }
   }
 
-  const editableFields = ['name', 'start', 'end', 'duration', 'progress', 'predecessors'];
+  const editableFields = ['name', 'start', 'end', 'predecessors'];
 
   return (
     <div className="treegrid gantt-scrollbar">
