@@ -13,6 +13,13 @@ export function SimplePopover({ trigger, children, align = 'start', width, class
   const containerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
+  const triggerWrapperStyle = {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'stretch' as const,
+  };
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -26,7 +33,7 @@ export function SimplePopover({ trigger, children, align = 'start', width, class
 
   return (
     <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex', width: '100%', height: '100%' }}>
-      <div onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
+      <div style={triggerWrapperStyle} onClick={(e) => { e.stopPropagation(); setOpen(!open); }}>
         {trigger}
       </div>
       {open && (
@@ -62,6 +69,13 @@ interface ControlledPopoverProps {
 export function ControlledPopover({ open, onOpenChange, trigger, children, align = 'start', width, className = '' }: ControlledPopoverProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const triggerWrapperStyle = {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'stretch' as const,
+  };
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -75,7 +89,7 @@ export function ControlledPopover({ open, onOpenChange, trigger, children, align
 
   return (
     <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex', width: '100%', height: '100%' }}>
-      <div onClick={(e) => { e.stopPropagation(); onOpenChange(!open); }}>
+      <div style={triggerWrapperStyle} onClick={(e) => { e.stopPropagation(); onOpenChange(!open); }}>
         {trigger}
       </div>
       {open && (
