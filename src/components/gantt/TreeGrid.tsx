@@ -4,6 +4,7 @@ import { FlatTask, Resource, formatDate, getDuration, dependencyToString, toDate
 import { CPMResult } from '@/lib/gantt-cpm';
 import { ResourceSelect } from './ResourceSelect';
 import { ProgressEditor } from './ProgressEditor';
+import { DurationEditor } from './DurationEditor';
 
 interface TreeGridProps {
   tasks: FlatTask[];
@@ -74,7 +75,7 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
     }
   }
 
-  const editableFields = ['name', 'start', 'end', 'duration', 'progress', 'predecessors'];
+  const editableFields = ['name', 'start', 'end', 'predecessors'];
 
   return (
     <div className="treegrid gantt-scrollbar">
@@ -159,6 +160,12 @@ export function TreeGrid({ tasks, resources, selectedTaskIds, onSelectTask, onTo
                         </span>
                       )}
                     </div>
+                  ) : col.key === 'duration' ? (
+                    <DurationEditor
+                      duration={getDuration(task.start, task.end)}
+                      disabled={task.hasChildren}
+                      onChange={(v) => onUpdateTask(task.id, 'duration', String(v))}
+                    />
                   ) : col.key === 'progress' ? (
                     <ProgressEditor
                       progress={task.progress}
