@@ -74,7 +74,7 @@ export function ControlledPopover({ open, onOpenChange, trigger, children, align
   }, [open, onOpenChange]);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex' }}>
+    <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex', width: '100%', height: '100%' }}>
       <div onClick={(e) => { e.stopPropagation(); onOpenChange(!open); }}>
         {trigger}
       </div>
