@@ -2,11 +2,13 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { GanttTask, FlatTask, Resource, Dependency, addDays, getDuration, parsePredecessorString } from '@/lib/gantt-types';
 import { createSampleData, flattenTasks, rollupParentDates, hasCircularDependency } from '@/lib/gantt-store';
 import { calculateCriticalPath, CPMResult } from '@/lib/gantt-cpm';
+import { WorkCalendarConfig, defaultWorkCalendar, addWorkingDays, getWorkingDaysDuration, Holiday } from '@/lib/work-calendar';
 import { GanttToolbar } from './GanttToolbar';
 import { TreeGrid } from './TreeGrid';
 import { TimelineChart } from './TimelineChart';
 import { ResourcePanel, COLORS } from './ResourcePanel';
 import { GanttContextMenu } from './ContextMenu';
+import { HolidayManager } from './HolidayManager';
 import { useToast } from '@/hooks/use-toast-simple';
 
 const ROW_HEIGHT = 36;
@@ -25,7 +27,11 @@ export function GanttChart() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: number } | null>(null);
   const [dividerX, setDividerX] = useState(840);
   const [highlightTaskId, setHighlightTaskId] = useState<number | null>(null);
+  const [showHolidayManager, setShowHolidayManager] = useState(false);
   const dividerDragging = useRef(false);
+
+  // Work calendar state
+  const [workCalendar, setWorkCalendar] = useState<WorkCalendarConfig>(defaultWorkCalendar);
 
   const treeScrollRef = useRef<HTMLDivElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
@@ -61,7 +67,32 @@ export function GanttChart() {
   const cpmResults = useMemo(() => calculateCriticalPath(tasks), [tasks]);
 
   const updateTasks = useCallback((updater: (prev: GanttTask[]) => GanttTask[]) => {
-    setTasks(prev => rollupParentDates(updater(prev)));
+    setTasks(prev => rollupParentDates(updater(prev), workCalendar));
+  }, [workCalendar]);
+
+  // Re-schedule all tasks when calendar config changes
+  useEffect(() => {
+    setTasks(prev => rollupParentDates(prev, workCalendar));
+  }, [workCalendar]);
+
+  const handleCalendarChange = useCallback((update: Partial<WorkCalendarConfig>) => {
+    setWorkCalendar(prev => ({ ...prev, ...update }));
+  }, []);
+
+  const addHoliday = useCallback((holiday: Holiday) => {
+    setWorkCalendar(prev => ({
+      ...prev,
+      holidays: prev.holidays.some(h => h.date === holiday.date)
+        ? prev.holidays.map(h => h.date === holiday.date ? holiday : h)
+        : [...prev.holidays, holiday],
+    }));
+  }, []);
+
+  const deleteHoliday = useCallback((date: string) => {
+    setWorkCalendar(prev => ({
+      ...prev,
+      holidays: prev.holidays.filter(h => h.date !== date),
+    }));
   }, []);
 
   const scrollToTask = useCallback((taskId: number) => {
@@ -329,9 +360,22 @@ export function GanttChart() {
       if (t.id !== id) return t;
       switch (field) {
         case 'name': return { ...t, name: value };
-        case 'start': { const d = new Date(value + 'T00:00:00'); if (isNaN(d.getTime())) return t; const dur = getDuration(t.start, t.end); return { ...t, start: d, end: addDays(d, dur) }; }
-        case 'end': { const d = new Date(value + 'T00:00:00'); if (isNaN(d.getTime()) || d <= t.start) return t; return { ...t, end: d }; }
-        case 'duration': { const dur = parseInt(value); if (isNaN(dur) || dur < 1) return t; return { ...t, end: addDays(t.start, dur) }; }
+        case 'start': {
+          const d = new Date(value + 'T00:00:00');
+          if (isNaN(d.getTime())) return t;
+          const dur = getWorkingDaysDuration(t.start, t.end, workCalendar);
+          return { ...t, start: d, end: addWorkingDays(d, dur, workCalendar) };
+        }
+        case 'end': {
+          const d = new Date(value + 'T00:00:00');
+          if (isNaN(d.getTime()) || d < t.start) return t;
+          return { ...t, end: d };
+        }
+        case 'duration': {
+          const dur = parseInt(value);
+          if (isNaN(dur) || dur < 0) return t;
+          return { ...t, end: addWorkingDays(t.start, dur, workCalendar) };
+        }
         case 'progress': { const p = parseInt(value); if (isNaN(p)) return t; return { ...t, progress: Math.max(0, Math.min(100, p)) }; }
         case 'predecessors': {
           const newDeps = parsePredecessorString(value);
@@ -344,7 +388,7 @@ export function GanttChart() {
         default: return t;
       }
     }));
-  }, [updateTasks, toast]);
+  }, [updateTasks, toast, workCalendar]);
 
   const updateTaskResources = useCallback((id: number, resourceIds: string[]) => {
     updateTasks(prev => prev.map(t => t.id === id ? { ...t, resources: resourceIds } : t));
@@ -353,10 +397,10 @@ export function GanttChart() {
   const moveTask = useCallback((id: number, newStart: Date) => {
     updateTasks(prev => prev.map(t => {
       if (t.id !== id) return t;
-      const dur = getDuration(t.start, t.end);
-      return { ...t, start: newStart, end: addDays(newStart, dur) };
+      const dur = getWorkingDaysDuration(t.start, t.end, workCalendar);
+      return { ...t, start: newStart, end: addWorkingDays(newStart, dur, workCalendar) };
     }));
-  }, [updateTasks]);
+  }, [updateTasks, workCalendar]);
 
   const resizeTask = useCallback((id: number, newEnd: Date) => {
     updateTasks(prev => prev.map(t => t.id !== id ? t : { ...t, end: newEnd }));
@@ -402,6 +446,9 @@ export function GanttChart() {
         hasSelection={selectedTaskIds.size > 0}
         showCriticalPath={showCriticalPath}
         onToggleCriticalPath={setShowCriticalPath}
+        workCalendar={workCalendar}
+        onCalendarChange={handleCalendarChange}
+        onOpenHolidays={() => setShowHolidayManager(true)}
       />
 
       <div className="gantt-content">
@@ -439,6 +486,7 @@ export function GanttChart() {
             showCriticalPath={showCriticalPath}
             rowHeight={ROW_HEIGHT}
             dayWidth={DAY_WIDTH}
+            workCalendar={workCalendar}
           />
         </div>
 
@@ -460,6 +508,15 @@ export function GanttChart() {
           onSetProgress={p => updateTaskField(contextMenu.taskId, 'progress', String(p))}
           onAddParallel={() => { addParallelTask(contextMenu.taskId); setContextMenu(null); }}
           onAddSubtask={() => { addSubtask(contextMenu.taskId); setContextMenu(null); }}
+        />
+      )}
+
+      {showHolidayManager && (
+        <HolidayManager
+          holidays={workCalendar.holidays}
+          onAddHoliday={addHoliday}
+          onDeleteHoliday={deleteHoliday}
+          onClose={() => setShowHolidayManager(false)}
         />
       )}
     </div>

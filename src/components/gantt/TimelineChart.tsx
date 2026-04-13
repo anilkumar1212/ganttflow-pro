@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { FlatTask, Resource, Dependency, addDays, getDuration, formatDate } from '@/lib/gantt-types';
 import { CPMResult } from '@/lib/gantt-cpm';
+import { WorkCalendarConfig, defaultWorkCalendar, isNonWorkingDay, getHolidayName } from '@/lib/work-calendar';
 
 interface TimelineChartProps {
   tasks: FlatTask[];
@@ -14,11 +15,13 @@ interface TimelineChartProps {
   showCriticalPath: boolean;
   rowHeight: number;
   dayWidth: number;
+  workCalendar?: WorkCalendarConfig;
 }
 
 export function TimelineChart({
   tasks, resources, selectedTaskIds, onSelectTask,
   onMoveTask, onResizeTask, onContextMenu, cpmResults, showCriticalPath, rowHeight, dayWidth,
+  workCalendar = defaultWorkCalendar,
 }: TimelineChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -162,18 +165,25 @@ export function TimelineChart({
           <rect x={0} y={rowHeight} width={totalWidth} height={rowHeight} fill="var(--gantt-header)" fillOpacity={0.85} />
           {days.map((d, i) => {
             const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
+            const isNonWorking = isNonWorkingDay(d.date, workCalendar);
+            const holidayName = getHolidayName(d.date, workCalendar);
             const dayNum = d.date.getDate();
             return (
               <g key={i}>
                 {dayWidth >= 20 && (
-                  <text
-                    x={d.x + dayWidth / 2}
-                    y={rowHeight + rowHeight / 2 + 4}
-                    textAnchor="middle"
-                    className={`timeline-day-text${isWeekend ? ' weekend' : ''}`}
-                  >
-                    {dayNum}
-                  </text>
+                  <>
+                    <text
+                      x={d.x + dayWidth / 2}
+                      y={rowHeight + rowHeight / 2 + 4}
+                      textAnchor="middle"
+                      className={`timeline-day-text${isWeekend ? ' weekend' : ''}${holidayName ? ' holiday' : ''}`}
+                    >
+                      {dayNum}
+                    </text>
+                    {holidayName && (
+                      <title>{holidayName}</title>
+                    )}
+                  </>
                 )}
               </g>
             );
@@ -184,9 +194,18 @@ export function TimelineChart({
         <g transform={`translate(0, ${rowHeight * 2})`}>
           {days.map((d, i) => {
             const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
+            const isNonWorking = isNonWorkingDay(d.date, workCalendar);
+            const holidayName = getHolidayName(d.date, workCalendar);
             return (
               <g key={i}>
-                {isWeekend && <rect x={d.x} y={0} width={dayWidth} height={totalHeight} fill="var(--gantt-weekend)" />}
+                {isNonWorking && (
+                  <rect
+                    x={d.x} y={0} width={dayWidth} height={totalHeight}
+                    fill={holidayName ? 'var(--gantt-holiday)' : 'var(--gantt-weekend)'}
+                  >
+                    {holidayName && <title>{holidayName}</title>}
+                  </rect>
+                )}
                 <line x1={d.x} y1={0} x2={d.x} y2={totalHeight} stroke="var(--gantt-grid-line)" strokeWidth={0.5} />
               </g>
             );

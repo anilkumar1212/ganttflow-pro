@@ -1,4 +1,5 @@
-import { Plus, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users } from 'lucide-react';
+import { Plus, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users, CalendarDays } from 'lucide-react';
+import { WorkCalendarConfig } from '@/lib/work-calendar';
 
 interface GanttToolbarProps {
   searchQuery: string;
@@ -14,6 +15,9 @@ interface GanttToolbarProps {
   hasSelection: boolean;
   showCriticalPath: boolean;
   onToggleCriticalPath: (on: boolean) => void;
+  workCalendar: WorkCalendarConfig;
+  onCalendarChange: (update: Partial<WorkCalendarConfig>) => void;
+  onOpenHolidays: () => void;
 }
 
 export function GanttToolbar({
@@ -21,6 +25,7 @@ export function GanttToolbar({
   onIndent, onOutdent, onExpandAll, onCollapseAll,
   onToggleResources, showResources, hasSelection,
   showCriticalPath, onToggleCriticalPath,
+  workCalendar, onCalendarChange, onOpenHolidays,
 }: GanttToolbarProps) {
   return (
     <div className="toolbar">
@@ -62,6 +67,37 @@ export function GanttToolbar({
         </label>
         <span className="toolbar-label">Critical Path</span>
       </div>
+
+      <div className="toolbar-divider" />
+
+      {/* Weekend exclusion controls */}
+      <div className="toolbar-switch-group">
+        <label className="switch">
+          <input
+            type="checkbox"
+            checked={workCalendar.excludeSaturday}
+            onChange={e => onCalendarChange({ excludeSaturday: e.target.checked })}
+          />
+          <span className="switch-slider" />
+        </label>
+        <span className="toolbar-label">Excl. Sat</span>
+      </div>
+
+      <div className="toolbar-switch-group">
+        <label className="switch">
+          <input
+            type="checkbox"
+            checked={workCalendar.excludeSunday}
+            onChange={e => onCalendarChange({ excludeSunday: e.target.checked })}
+          />
+          <span className="switch-slider" />
+        </label>
+        <span className="toolbar-label">Excl. Sun</span>
+      </div>
+
+      <button className="btn btn-ghost btn-sm" onClick={onOpenHolidays} title="Manage Holidays">
+        <CalendarDays size={16} /> Holidays{workCalendar.holidays.length > 0 && ` (${workCalendar.holidays.length})`}
+      </button>
 
       <div className="toolbar-spacer" />
 
