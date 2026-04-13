@@ -1,4 +1,5 @@
 import { GanttTask, Resource, FlatTask, Dependency, addDays, getDuration } from './gantt-types';
+import { WorkCalendarConfig, defaultWorkCalendar, addWorkingDays, getWorkingDaysDuration, nextWorkingDay, isNonWorkingDay } from './work-calendar';
 
 // Check for circular dependencies using DFS
 export function hasCircularDependency(tasks: GanttTask[], taskId: number, newDeps: Dependency[]): boolean {
@@ -27,11 +28,8 @@ export function hasCircularDependency(tasks: GanttTask[], taskId: number, newDep
 }
 
 // Schedule tasks based on dependency constraints (topological order)
-// Enforces: FS: succ.start >= pred.end + lag
-//           SS: succ.start >= pred.start + lag
-//           FF: succ.end >= pred.end + lag  =>  succ.start >= pred.end + lag - duration
-//           SF: succ.end >= pred.start + lag => succ.start >= pred.start + lag - duration
-export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
+// Uses work calendar to skip non-working days
+export function scheduleDependencies(tasks: GanttTask[], calendar: WorkCalendarConfig = defaultWorkCalendar): GanttTask[] {
   const result = tasks.map(t => ({ ...t, start: new Date(t.start), end: new Date(t.end) }));
   const taskMap = new Map(result.map(t => [t.id, t]));
 
@@ -70,21 +68,26 @@ export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
     }
   }
 
-  // Process in topological order - compute earliest start based on predecessors
-  // CRITICAL FIX: For tasks with dependencies, compute dates purely from
-  // predecessor constraints (not from the task's current start). This ensures
-  // switching dependency types (e.g. FS→SS→FS) always produces correct results.
+  // Process in topological order
   for (const id of order) {
     const task = taskMap.get(id)!;
     const validDeps = task.dependencies.filter(d => taskMap.has(d.predecessorId));
-    if (validDeps.length === 0) continue;
+    if (validDeps.length === 0) {
+      // Snap standalone tasks to working days
+      const snappedStart = nextWorkingDay(task.start, calendar);
+      if (snappedStart.getTime() !== task.start.getTime()) {
+        const duration = getWorkingDaysDuration(task.start, task.end, calendar);
+        task.start = snappedStart;
+        task.end = addWorkingDays(snappedStart, duration, calendar);
+      }
+      continue;
+    }
 
-    // Skip parent/summary tasks - they get rolled up from children
+    // Skip parent/summary tasks
     if (parentIds.has(id)) continue;
 
-    const duration = getDuration(task.start, task.end);
+    const duration = getWorkingDaysDuration(task.start, task.end, calendar);
 
-    // Start from the earliest possible date (epoch) so constraints fully drive the result
     let earliestStart = new Date(0);
 
     for (const dep of validDeps) {
@@ -92,42 +95,39 @@ export function scheduleDependencies(tasks: GanttTask[]): GanttTask[] {
 
       let constraintDate: Date;
       switch (dep.type) {
-        case 'FS': // Finish-to-Start: successor start >= predecessor end + lag
-          constraintDate = addDays(pred.end, dep.lag);
+        case 'FS':
+          constraintDate = addWorkingDays(pred.end, dep.lag, calendar);
           break;
-        case 'SS': // Start-to-Start: successor start >= predecessor start + lag
-          constraintDate = addDays(pred.start, dep.lag);
+        case 'SS':
+          constraintDate = addWorkingDays(pred.start, dep.lag, calendar);
           break;
-        case 'FF': // Finish-to-Finish: successor end >= predecessor end + lag
-          // => successor start >= pred.end + lag - duration
-          constraintDate = addDays(pred.end, dep.lag - duration);
+        case 'FF':
+          // succ.end >= pred.end + lag => succ.start = pred.end + lag - duration (in working days)
+          constraintDate = addWorkingDays(pred.end, dep.lag - duration, calendar);
           break;
-        case 'SF': // Start-to-Finish: successor end >= predecessor start + lag
-          // => successor start >= pred.start + lag - duration
-          constraintDate = addDays(pred.start, dep.lag - duration);
+        case 'SF':
+          constraintDate = addWorkingDays(pred.start, dep.lag - duration, calendar);
           break;
         default:
           constraintDate = new Date(0);
       }
+      // Snap constraint to working day
+      constraintDate = nextWorkingDay(constraintDate, calendar);
       if (constraintDate > earliestStart) earliestStart = constraintDate;
     }
 
     task.start = earliestStart;
-    task.end = addDays(earliestStart, duration);
+    task.end = addWorkingDays(earliestStart, duration, calendar);
   }
 
   return result;
 }
 
 // Rollup parent dates from children
-export function rollupParentDates(tasks: GanttTask[]): GanttTask[] {
-  // First schedule dependencies, then rollup parents
-  const scheduled = scheduleDependencies(tasks);
+export function rollupParentDates(tasks: GanttTask[], calendar: WorkCalendarConfig = defaultWorkCalendar): GanttTask[] {
+  const scheduled = scheduleDependencies(tasks, calendar);
 
-  // Multi-level rollup: process deepest parents first
   const parentIds = new Set(scheduled.filter(t => t.parentId !== null).map(t => t.parentId!));
-
-  // Sort parents by level descending so deeper parents roll up first
   const parentList = scheduled.filter(t => parentIds.has(t.id));
   parentList.sort((a, b) => b.level - a.level);
 
