@@ -1,4 +1,4 @@
-import { Plus, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users, CalendarDays, Sparkles } from 'lucide-react';
 import { WorkCalendarConfig } from '@/lib/work-calendar';
 
 interface GanttToolbarProps {
@@ -18,6 +18,7 @@ interface GanttToolbarProps {
   workCalendar: WorkCalendarConfig;
   onCalendarChange: (update: Partial<WorkCalendarConfig>) => void;
   onOpenHolidays: () => void;
+  onOpenAIPlanner: () => void;
 }
 
 export function GanttToolbar({
@@ -25,7 +26,7 @@ export function GanttToolbar({
   onIndent, onOutdent, onExpandAll, onCollapseAll,
   onToggleResources, showResources, hasSelection,
   showCriticalPath, onToggleCriticalPath,
-  workCalendar, onCalendarChange, onOpenHolidays,
+  workCalendar, onCalendarChange, onOpenHolidays, onOpenAIPlanner,
 }: GanttToolbarProps) {
   return (
     <div className="toolbar">
@@ -100,6 +101,10 @@ export function GanttToolbar({
       </button>
 
       <div className="toolbar-spacer" />
+
+      <button className="btn btn-sm ai-toolbar-btn" onClick={onOpenAIPlanner}>
+        <Sparkles size={14} /> Generate with AI
+      </button>
 
       <button
         className={`btn btn-sm ${showResources ? 'btn-primary' : 'btn-ghost'}`}

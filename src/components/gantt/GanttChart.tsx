@@ -9,6 +9,8 @@ import { TimelineChart } from './TimelineChart';
 import { ResourcePanel, COLORS } from './ResourcePanel';
 import { GanttContextMenu } from './ContextMenu';
 import { HolidayManager } from './HolidayManager';
+import { AIPlannerPanel } from './AIPlannerPanel';
+import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
 
 const ROW_HEIGHT = 36;
@@ -28,6 +30,7 @@ export function GanttChart() {
   const [dividerX, setDividerX] = useState(840);
   const [highlightTaskId, setHighlightTaskId] = useState<number | null>(null);
   const [showHolidayManager, setShowHolidayManager] = useState(false);
+  const [showAIPlanner, setShowAIPlanner] = useState(false);
   const dividerDragging = useRef(false);
 
   // Work calendar state
@@ -416,6 +419,29 @@ export function GanttChart() {
     updateTasks(prev => prev.map(t => ({ ...t, resources: t.resources.filter(r => r !== id) })));
   }, [updateTasks]);
 
+  const handleLoadAIPlan = useCallback((plan: AIProjectPlan) => {
+    const maxId = Math.max(0, ...tasks.map(t => t.id));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newTasks = convertPlanToTasks(plan, workCalendar, maxId, today);
+
+    // Create resources for suggested roles that don't already exist
+    const existingNames = new Set(resources.map(r => r.name.toLowerCase()));
+    const newResources: Resource[] = [];
+    (plan.resourceRoles || []).forEach((role, i) => {
+      if (!existingNames.has(role.toLowerCase())) {
+        newResources.push({
+          id: `r${Date.now()}_${i}`,
+          name: role,
+          color: COLORS[(resources.length + newResources.length) % COLORS.length],
+        });
+      }
+    });
+    if (newResources.length > 0) setResources(prev => [...prev, ...newResources]);
+    updateTasks(prev => [...prev, ...newTasks]);
+  }, [tasks, resources, workCalendar, updateTasks]);
+
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dividerDragging.current) return;
@@ -449,6 +475,7 @@ export function GanttChart() {
         workCalendar={workCalendar}
         onCalendarChange={handleCalendarChange}
         onOpenHolidays={() => setShowHolidayManager(true)}
+        onOpenAIPlanner={() => setShowAIPlanner(true)}
       />
 
       <div className="gantt-content">
@@ -519,6 +546,12 @@ export function GanttChart() {
           onClose={() => setShowHolidayManager(false)}
         />
       )}
+
+      <AIPlannerPanel
+        open={showAIPlanner}
+        onClose={() => setShowAIPlanner(false)}
+        onLoadPlan={handleLoadAIPlan}
+      />
     </div>
   );
 }
