@@ -452,6 +452,7 @@ export function GanttChart() {
         workCalendar={workCalendar}
         onCalendarChange={handleCalendarChange}
         onOpenHolidays={() => setShowHolidayManager(true)}
+        onOpenAIPlanner={() => setShowAIPlanner(true)}
       />
 
       <div className="gantt-content">
