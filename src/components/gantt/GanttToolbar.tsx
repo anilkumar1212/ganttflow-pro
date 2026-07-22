@@ -1,4 +1,4 @@
-import { Plus, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, IndentIncrease, IndentDecrease, ChevronDown, ChevronUp, Search, Users, CalendarDays, Sparkles } from 'lucide-react';
 import { WorkCalendarConfig } from '@/lib/work-calendar';
 
 interface GanttToolbarProps {
