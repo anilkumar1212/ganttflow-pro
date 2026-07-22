@@ -102,6 +102,10 @@ export function GanttToolbar({
 
       <div className="toolbar-spacer" />
 
+      <button className="btn btn-sm ai-toolbar-btn" onClick={onOpenAIPlanner}>
+        <Sparkles size={14} /> Generate with AI
+      </button>
+
       <button
         className={`btn btn-sm ${showResources ? 'btn-primary' : 'btn-ghost'}`}
         onClick={onToggleResources}
