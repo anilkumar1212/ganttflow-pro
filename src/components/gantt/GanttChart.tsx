@@ -30,6 +30,7 @@ export function GanttChart() {
   const [dividerX, setDividerX] = useState(840);
   const [highlightTaskId, setHighlightTaskId] = useState<number | null>(null);
   const [showHolidayManager, setShowHolidayManager] = useState(false);
+  const [showAIPlanner, setShowAIPlanner] = useState(false);
   const dividerDragging = useRef(false);
 
   // Work calendar state
