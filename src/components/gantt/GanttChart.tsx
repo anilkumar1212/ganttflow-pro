@@ -419,6 +419,29 @@ export function GanttChart() {
     updateTasks(prev => prev.map(t => ({ ...t, resources: t.resources.filter(r => r !== id) })));
   }, [updateTasks]);
 
+  const handleLoadAIPlan = useCallback((plan: AIProjectPlan) => {
+    const maxId = Math.max(0, ...tasks.map(t => t.id));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newTasks = convertPlanToTasks(plan, workCalendar, maxId, today);
+
+    // Create resources for suggested roles that don't already exist
+    const existingNames = new Set(resources.map(r => r.name.toLowerCase()));
+    const newResources: Resource[] = [];
+    (plan.resourceRoles || []).forEach((role, i) => {
+      if (!existingNames.has(role.toLowerCase())) {
+        newResources.push({
+          id: `r${Date.now()}_${i}`,
+          name: role,
+          color: COLORS[(resources.length + newResources.length) % COLORS.length],
+        });
+      }
+    });
+    if (newResources.length > 0) setResources(prev => [...prev, ...newResources]);
+    updateTasks(prev => [...prev, ...newTasks]);
+  }, [tasks, resources, workCalendar, updateTasks]);
+
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dividerDragging.current) return;
