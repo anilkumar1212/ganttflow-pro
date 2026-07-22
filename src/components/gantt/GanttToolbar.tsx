@@ -18,6 +18,7 @@ interface GanttToolbarProps {
   workCalendar: WorkCalendarConfig;
   onCalendarChange: (update: Partial<WorkCalendarConfig>) => void;
   onOpenHolidays: () => void;
+  onOpenAIPlanner: () => void;
 }
 
 export function GanttToolbar({
