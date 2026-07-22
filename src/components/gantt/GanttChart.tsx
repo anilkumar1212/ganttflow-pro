@@ -546,6 +546,12 @@ export function GanttChart() {
           onClose={() => setShowHolidayManager(false)}
         />
       )}
+
+      <AIPlannerPanel
+        open={showAIPlanner}
+        onClose={() => setShowAIPlanner(false)}
+        onLoadPlan={handleLoadAIPlan}
+      />
     </div>
   );
 }
