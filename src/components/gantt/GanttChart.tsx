@@ -9,6 +9,8 @@ import { TimelineChart } from './TimelineChart';
 import { ResourcePanel, COLORS } from './ResourcePanel';
 import { GanttContextMenu } from './ContextMenu';
 import { HolidayManager } from './HolidayManager';
+import { AIPlannerPanel } from './AIPlannerPanel';
+import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
 
 const ROW_HEIGHT = 36;
