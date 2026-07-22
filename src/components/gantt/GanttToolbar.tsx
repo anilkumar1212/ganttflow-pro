@@ -26,7 +26,7 @@ export function GanttToolbar({
   onIndent, onOutdent, onExpandAll, onCollapseAll,
   onToggleResources, showResources, hasSelection,
   showCriticalPath, onToggleCriticalPath,
-  workCalendar, onCalendarChange, onOpenHolidays,
+  workCalendar, onCalendarChange, onOpenHolidays, onOpenAIPlanner,
 }: GanttToolbarProps) {
   return (
     <div className="toolbar">
