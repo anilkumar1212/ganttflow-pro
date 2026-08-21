@@ -6,14 +6,15 @@ import { JsonDiffModal } from './JsonDiffModal';
 
 interface Props {
   /** Current (live) Gantt tasks — read only, never mutated. */
-  tasks: ReviewTask[];
+  tasks: readonly unknown[];
 }
 
 /**
  * Isolated, read-only change-review surface.
  * Captures the first tasks array it ever receives as the immutable initial snapshot.
  */
-export function GanttChangeReview({ tasks }: Props) {
+export function GanttChangeReview({ tasks: rawTasks }: Props) {
+  const tasks = rawTasks as unknown as ReviewTask[];
   const initialRef = useRef<ReviewTask[] | null>(null);
   if (initialRef.current === null && tasks) {
     initialRef.current = JSON.parse(JSON.stringify(tasks, (_k, v) => v)) as ReviewTask[];
