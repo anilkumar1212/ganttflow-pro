@@ -12,6 +12,7 @@ import { HolidayManager } from './HolidayManager';
 import { AIPlannerPanel } from './AIPlannerPanel';
 import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
+import { GanttChangeReview } from '@/gantt-change-review/GanttChangeReview';
 
 const ROW_HEIGHT = 36;
 const DAY_WIDTH = 28;
@@ -458,6 +459,9 @@ export function GanttChart() {
 
   return (
     <div className="gantt-app">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 12px' }}>
+        <GanttChangeReview tasks={tasks} />
+      </div>
       <GanttToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
