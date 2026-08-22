@@ -79,7 +79,13 @@ function displayValue(field: string, value: unknown): string {
   return String(value);
 }
 
-const IGNORED_FIELDS = new Set(['expanded', 'hasChildren', 'visible']);
+/** Only user-editable fields are considered a "change" in this view. */
+const COMPARED_FIELDS = ['name', 'start', 'end'] as const;
+
+function normalizeForCompare(field: string, value: unknown): string {
+  if (field === 'start' || field === 'end') return toISODate(value);
+  return String(value ?? '').trim();
+}
 
 export function computeTaskChanges(initial: ReviewTask[], current: ReviewTask[]): TaskChange[] {
   const initialMap = new Map(initial.map(t => [t.id, t]));
@@ -93,14 +99,10 @@ export function computeTaskChanges(initial: ReviewTask[], current: ReviewTask[])
       continue;
     }
     const changes: FieldChange[] = [];
-    const keys = new Set([...Object.keys(prev), ...Object.keys(cur)]);
-    for (const key of keys) {
-      if (IGNORED_FIELDS.has(key) || key === 'id') continue;
+    for (const key of COMPARED_FIELDS) {
       const a = (prev as Record<string, unknown>)[key];
       const b = (cur as Record<string, unknown>)[key];
-      const aNorm = a instanceof Date ? toISODate(a) : JSON.stringify(a ?? null);
-      const bNorm = b instanceof Date ? toISODate(b) : JSON.stringify(b ?? null);
-      if (aNorm === bNorm) continue;
+      if (normalizeForCompare(key, a) === normalizeForCompare(key, b)) continue;
       changes.push({
         field: key,
         label: FIELD_LABELS[key] ?? key,
@@ -109,14 +111,10 @@ export function computeTaskChanges(initial: ReviewTask[], current: ReviewTask[])
       });
     }
     if (changes.length) {
-      const order = ['name', 'start', 'end'];
-      changes.sort((x, y) => {
-        const ix = order.indexOf(x.field), iy = order.indexOf(y.field);
-        return (ix === -1 ? 99 : ix) - (iy === -1 ? 99 : iy);
-      });
       result.push({ id: cur.id, name: prev.name, status: 'modified', changes });
     }
   }
+
 
   for (const prev of initial) {
     if (!currentMap.has(prev.id)) {
