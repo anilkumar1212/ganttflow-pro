@@ -16,7 +16,8 @@ interface Props {
 export function GanttChangeReview({ tasks: rawTasks }: Props) {
   const tasks = rawTasks as unknown as ReviewTask[];
   const initialRef = useRef<ReviewTask[] | null>(null);
-  if (initialRef.current === null && tasks) {
+  // Captured exactly once (first non-empty tasks array) and never overwritten.
+  if (initialRef.current === null && tasks && tasks.length > 0) {
     initialRef.current = JSON.parse(JSON.stringify(tasks, (_k, v) => v)) as ReviewTask[];
   }
   const initialTasks = initialRef.current ?? [];

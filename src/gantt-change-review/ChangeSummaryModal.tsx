@@ -49,12 +49,9 @@ export function ChangeSummaryModal({ initialTasks, currentTasks, onClose }: Prop
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
     });
 
-  const visibleFields = [
-    'name',
-    'start',
-    'end',
-    ...changedFields.filter(f => f !== 'name' && f !== 'start' && f !== 'end'),
-  ];
+  // Only show columns for fields that were actually modified.
+  const visibleFields = changedFields;
+
 
   const getChange = (task: TaskChange, field: string): FieldChange | undefined =>
     task.changes.find(c => c.field === field);
