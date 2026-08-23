@@ -57,34 +57,128 @@ export interface TaskChange {
   name: string;
   status: 'modified' | 'added' | 'removed';
   changes: FieldChange[];
+  /** Normalized display values for every business field (for full-row context). */
+  before: Record<string, string>;
+  after: Record<string, string>;
 }
 
-const FIELD_LABELS: Record<string, string> = {
+export const FIELD_LABELS: Record<string, string> = {
   name: 'Task Name',
+  type: 'Type',
   start: 'Start Date',
   end: 'End Date',
+  duration: 'Duration',
   progress: 'Progress',
-  parentId: 'Parent Task',
+  parentId: 'Parent',
   resources: 'Resources',
-  dependencies: 'Dependencies',
+  dependencies: 'Dependency',
   level: 'Level',
-  expanded: 'Expanded',
+  milestone: 'Milestone',
 };
 
-function displayValue(field: string, value: unknown): string {
-  if (field === 'start' || field === 'end') return prettyDate(value);
-  if (field === 'progress') return `${value ?? 0}%`;
-  if (Array.isArray(value)) return value.length ? JSON.stringify(value) : '—';
+/** Purely internal / UI-state properties that are never user data. */
+const IGNORED_FIELDS = new Set([
+  'expanded',
+  'hasChildren',
+  'visible',
+  'selected',
+  'index',
+  'styles',
+  'isDisabled',
+  'hideChildren',
+  'displayOrder',
+  'barChildren',
+  'x1', 'x2', 'y', 'height', 'width',
+  'earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'slack', 'isCritical',
+]);
+
+function isInternalKey(key: string): boolean {
+  return key.startsWith('_') || IGNORED_FIELDS.has(key);
+}
+
+function depToString(d: unknown): string {
+  if (d && typeof d === 'object') {
+    const o = d as Record<string, unknown>;
+    if ('predecessorId' in o) {
+      const lag = Number(o.lag ?? 0);
+      const lagStr = lag > 0 ? `+${lag}d` : lag < 0 ? `${lag}d` : '';
+      return `${o.predecessorId}${o.type ?? 'FS'}${lagStr}`;
+    }
+    return JSON.stringify(o);
+  }
+  return String(d ?? '');
+}
+
+/** Order-insensitive, reference-insensitive normalization of any value. */
+function normalizeValue(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  if (field === 'start' || field === 'end' || value instanceof Date) return toISODate(value);
+  if (Array.isArray(value)) {
+    const items = value.map(v =>
+      v && typeof v === 'object' ? depToString(v) : String(v ?? '')
+    );
+    return items.slice().sort().join('|');
+  }
+  if (typeof value === 'object') {
+    const o = value as Record<string, unknown>;
+    return Object.keys(o).sort().map(k => `${k}=${normalizeValue(k, o[k])}`).join('|');
+  }
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  return String(value).trim();
+}
+
+export function displayField(field: string, value: unknown): string {
   if (value === null || value === undefined || value === '') return '—';
+  if (field === 'start' || field === 'end' || value instanceof Date) return prettyDate(value);
+  if (field === 'progress') return `${value}%`;
+  if (field === 'duration') return `${value} d`;
+  if (Array.isArray(value)) {
+    if (!value.length) return '—';
+    return value.map(depToString).join(', ');
+  }
+  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   return String(value);
 }
 
-/** Only user-editable fields are considered a "change" in this view. */
-const COMPARED_FIELDS = ['name', 'start', 'end'] as const;
+function daysBetween(start: unknown, end: unknown): number | null {
+  const a = start instanceof Date ? start : new Date(String(start));
+  const b = end instanceof Date ? end : new Date(String(end));
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000));
+}
 
-function normalizeForCompare(field: string, value: unknown): string {
-  if (field === 'start' || field === 'end') return toISODate(value);
-  return String(value ?? '').trim();
+/** Business data view of a task: real fields + derived duration. */
+function businessFields(task: ReviewTask): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(task)) {
+    if (key === 'id' || isInternalKey(key)) continue;
+    out[key] = (task as Record<string, unknown>)[key];
+  }
+  const dur = daysBetween(task.start, task.end);
+  if (dur !== null) out.duration = dur;
+  return out;
+}
+
+const FIELD_ORDER = [
+  'name', 'type', 'start', 'end', 'duration', 'dependencies',
+  'progress', 'resources', 'parentId', 'level', 'milestone',
+];
+
+export function sortFields(fields: string[]): string[] {
+  return fields.slice().sort((a, b) => {
+    const ia = FIELD_ORDER.indexOf(a);
+    const ib = FIELD_ORDER.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+}
+
+function displayRecord(fields: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(fields)) out[k] = displayField(k, fields[k]);
+  return out;
 }
 
 export function computeTaskChanges(initial: ReviewTask[], current: ReviewTask[]): TaskChange[] {
@@ -94,35 +188,59 @@ export function computeTaskChanges(initial: ReviewTask[], current: ReviewTask[])
 
   for (const cur of current) {
     const prev = initialMap.get(cur.id);
+    const curFields = businessFields(cur);
     if (!prev) {
-      result.push({ id: cur.id, name: cur.name, status: 'added', changes: [] });
+      result.push({
+        id: cur.id,
+        name: cur.name,
+        status: 'added',
+        changes: [],
+        before: {},
+        after: displayRecord(curFields),
+      });
       continue;
     }
+    const prevFields = businessFields(prev);
     const changes: FieldChange[] = [];
-    for (const key of COMPARED_FIELDS) {
-      const a = (prev as Record<string, unknown>)[key];
-      const b = (cur as Record<string, unknown>)[key];
-      if (normalizeForCompare(key, a) === normalizeForCompare(key, b)) continue;
+    const keys = sortFields(Array.from(new Set([...Object.keys(prevFields), ...Object.keys(curFields)])));
+    for (const key of keys) {
+      const a = prevFields[key];
+      const b = curFields[key];
+      if (normalizeValue(key, a) === normalizeValue(key, b)) continue;
       changes.push({
         field: key,
         label: FIELD_LABELS[key] ?? key,
-        from: displayValue(key, a),
-        to: displayValue(key, b),
+        from: displayField(key, a),
+        to: displayField(key, b),
       });
     }
     if (changes.length) {
-      result.push({ id: cur.id, name: prev.name, status: 'modified', changes });
+      result.push({
+        id: cur.id,
+        name: prev.name,
+        status: 'modified',
+        changes,
+        before: displayRecord(prevFields),
+        after: displayRecord(curFields),
+      });
     }
   }
 
-
   for (const prev of initial) {
     if (!currentMap.has(prev.id)) {
-      result.push({ id: prev.id, name: prev.name, status: 'removed', changes: [] });
+      result.push({
+        id: prev.id,
+        name: prev.name,
+        status: 'removed',
+        changes: [],
+        before: displayRecord(businessFields(prev)),
+        after: {},
+      });
     }
   }
 
   return result;
+
 }
 
 export type DiffKind = 'same' | 'added' | 'removed' | 'empty';
