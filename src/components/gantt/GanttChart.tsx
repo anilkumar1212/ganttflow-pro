@@ -460,7 +460,7 @@ export function GanttChart() {
   return (
     <div className="gantt-app">
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 12px' }}>
-        <GanttChangeReview tasks={tasks} />
+        <GanttChangeActions tasks={tasks} />
       </div>
       <GanttToolbar
         searchQuery={searchQuery}
