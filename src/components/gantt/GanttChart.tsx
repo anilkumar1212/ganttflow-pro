@@ -12,7 +12,7 @@ import { HolidayManager } from './HolidayManager';
 import { AIPlannerPanel } from './AIPlannerPanel';
 import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
-import { GanttChangeReview } from '@/gantt-change-review/GanttChangeReview';
+import { GanttChangeActions } from '@/gantt-change-review';
 
 const ROW_HEIGHT = 36;
 const DAY_WIDTH = 28;
