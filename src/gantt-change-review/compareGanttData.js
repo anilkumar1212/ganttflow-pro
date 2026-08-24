@@ -87,11 +87,13 @@ function displayField(field, value) {
   return String(value);
 }
 
+/** Calendar-day difference (time of day ignored). */
 function daysBetween(start, end) {
   const a = toDate(start);
   const b = toDate(end);
   if (!a || !b) return null;
-  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000));
+  const day = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.max(0, Math.round((day(b) - day(a)) / 86400000));
 }
 
 /** Business fields of a task (all meaningful keys + derived duration). */
