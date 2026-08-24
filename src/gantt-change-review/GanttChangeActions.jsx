@@ -10,7 +10,17 @@ import CompareJsonModal from './CompareJsonModal';
 export default function GanttChangeActions({ tasks }) {
   const initialRef = useRef(null);
   if (initialRef.current === null && tasks && tasks.length > 0) {
-    initialRef.current = tasks.map(t => ({ ...t }));
+    // Deep snapshot so later Gantt edits can never mutate the baseline.
+    initialRef.current = tasks.map(task => {
+      const copy = {};
+      Object.keys(task).forEach(key => {
+        const v = task[key];
+        if (v instanceof Date) copy[key] = new Date(v.getTime());
+        else if (v && typeof v === 'object') copy[key] = JSON.parse(JSON.stringify(v));
+        else copy[key] = v;
+      });
+      return copy;
+    });
   }
   const initialTasks = initialRef.current || [];
 
