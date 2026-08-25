@@ -13,6 +13,8 @@ import { AIPlannerPanel } from './AIPlannerPanel';
 import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
 import { GanttChangeActions } from '@/gantt-change-review';
+import { GanttModifiedChangesButton } from '@/gantt-change-view';
+
 
 const ROW_HEIGHT = 36;
 const DAY_WIDTH = 28;
@@ -461,7 +463,9 @@ export function GanttChart() {
     <div className="gantt-app">
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 12px' }}>
         <GanttChangeActions tasks={tasks} />
+        <GanttModifiedChangesButton tasks={tasks} />
       </div>
+
       <GanttToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
