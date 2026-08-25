@@ -6,7 +6,7 @@ import './ganttModifiedChanges.css';
  * Read-only button that captures the first non-empty tasks array as an
  * immutable baseline and shows only the current modified values.
  */
-export default function GanttModifiedChangesButton({ tasks }) {
+export default function GanttModifiedChangesButton({ tasks, resources }) {
   const initialRef = useRef(null);
   if (initialRef.current === null && tasks && tasks.length > 0) {
     initialRef.current = tasks.map(task => {
@@ -32,6 +32,7 @@ export default function GanttModifiedChangesButton({ tasks }) {
         <GanttModifiedChangesModal
           initialTasks={initialTasks}
           currentTasks={tasks}
+          resources={resources}
           onClose={() => setOpen(false)}
         />
       )}
