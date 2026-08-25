@@ -461,7 +461,9 @@ export function GanttChart() {
     <div className="gantt-app">
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 12px' }}>
         <GanttChangeActions tasks={tasks} />
+        <GanttModifiedChangesButton tasks={tasks} />
       </div>
+
       <GanttToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
