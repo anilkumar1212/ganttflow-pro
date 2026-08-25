@@ -13,6 +13,8 @@ import { AIPlannerPanel } from './AIPlannerPanel';
 import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
 import { GanttChangeActions } from '@/gantt-change-review';
+import { GanttModifiedChangesButton } from '@/gantt-change-view';
+
 
 const ROW_HEIGHT = 36;
 const DAY_WIDTH = 28;
