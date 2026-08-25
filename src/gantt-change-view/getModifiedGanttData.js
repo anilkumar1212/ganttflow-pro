@@ -1,4 +1,5 @@
-// Read-only helpers: compute only the CURRENT values of modified/new tasks.
+// Read-only helpers: compute the CURRENT values of changed/new tasks,
+// including a flag for each field that actually changed.
 // Plain JavaScript, no dependencies. Never mutates the input data.
 
 /** UI-only / derived properties that are not user business data. */
@@ -28,6 +29,7 @@ export const FIELD_LABELS = {
 const FIELD_ORDER = [
   'name', 'type', 'start', 'end', 'duration', 'dependencies',
   'progress', 'resources', 'assignee', 'parentId', 'level', 'milestone',
+  'notes',
 ];
 
 function toDate(value) {
@@ -76,12 +78,25 @@ function normalizeValue(field, value) {
 }
 
 /** Human readable current value. */
-export function displayField(field, value) {
+export function displayField(field, value, resources = []) {
   if (value === null || value === undefined || value === '') return '—';
   if (isDateField(field, value)) return prettyDate(value);
   if (field === 'progress') return `${value}%`;
   if (field === 'duration') return `${value} d`;
-  if (Array.isArray(value)) return value.length ? value.map(depToString).join(', ') : '—';
+  if (field === 'resources' || field === 'assignee') {
+    const list = Array.isArray(value) ? value : [value];
+    if (!list.length) return '—';
+    return list
+      .map(id => {
+        const res = resources.find(r => r.id === id || r.id === String(id));
+        return res ? res.name : String(id);
+      })
+      .join(', ');
+  }
+  if (field === 'dependencies') {
+    const list = Array.isArray(value) ? value : [value];
+    return list.length ? list.map(depToString).join(', ') : '—';
+  }
   if (typeof value === 'object') return JSON.stringify(value);
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   return String(value);
@@ -128,12 +143,15 @@ export function fieldLabel(field) {
 }
 
 /**
- * Compare baseline vs current tasks by stable id and return only the
- * current (modified) values. Deleted tasks are intentionally excluded.
+ * Compare baseline vs current tasks by stable id and return the full current
+ * row for every changed/new task. Deleted tasks are intentionally excluded.
  *
+ * @param {Array} initialTasks - baseline task snapshot
+ * @param {Array} currentTasks - current task list
+ * @param {Array} [resources=[]] - resource definitions for name lookups
  * @returns {{ columns: string[], rows: Array }}
  */
-export function getModifiedGanttData(initialTasks, currentTasks) {
+export function getModifiedGanttData(initialTasks, currentTasks, resources = []) {
   const initial = Array.isArray(initialTasks) ? initialTasks : [];
   const current = Array.isArray(currentTasks) ? currentTasks : [];
 
@@ -146,30 +164,38 @@ export function getModifiedGanttData(initialTasks, currentTasks) {
   current.forEach(task => {
     if (!task || task.id === undefined) return;
     const before = initialById.get(task.id);
-    const now = businessFields(task);
+    const nowFields = businessFields(task);
 
-    if (!before) {
-      const values = {};
-      sortFields(Object.keys(now)).forEach(f => {
-        if (normalizeValue(f, now[f]) === '') return;
-        values[f] = displayField(f, now[f]);
-        columnSet.add(f);
-      });
-      rows.push({ id: task.id, isNew: true, name: task.name, values });
-      return;
-    }
+    const allFields = before
+      ? sortFields([...new Set(Object.keys(businessFields(before)).concat(Object.keys(nowFields)))])
+      : sortFields(Object.keys(nowFields));
 
-    const prev = businessFields(before);
-    const keys = new Set(Object.keys(prev).concat(Object.keys(now)));
     const values = {};
-    let changed = false;
-    sortFields([...keys]).forEach(f => {
-      if (normalizeValue(f, prev[f]) === normalizeValue(f, now[f])) return;
-      changed = true;
-      values[f] = displayField(f, now[f]);
-      columnSet.add(f);
+    const changed = new Set();
+    let anyChanged = false;
+
+    allFields.forEach(field => {
+      const currentValue = nowFields[field];
+      values[field] = displayField(field, currentValue, resources);
+      columnSet.add(field);
+
+      if (!before) {
+        if (normalizeValue(field, currentValue) !== '') {
+          changed.add(field);
+        }
+        return;
+      }
+
+      const prevValue = businessFields(before)[field];
+      if (normalizeValue(field, prevValue) !== normalizeValue(field, currentValue)) {
+        changed.add(field);
+        anyChanged = true;
+      }
     });
-    if (changed) rows.push({ id: task.id, isNew: false, name: task.name, values });
+
+    if (!before || anyChanged) {
+      rows.push({ id: task.id, isNew: !before, name: task.name, values, changed });
+    }
   });
 
   return { columns: sortFields([...columnSet]), rows };
