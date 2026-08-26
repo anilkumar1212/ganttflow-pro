@@ -1,9 +1,10 @@
 import { getModifiedGanttData, fieldLabel } from './getModifiedGanttData';
 import './ganttModifiedChanges.css';
 
-/** Read-only modal showing ONLY the current/modified values of changed tasks. */
-export default function GanttModifiedChangesModal({ initialTasks, currentTasks, onClose }) {
-  const { columns, rows } = getModifiedGanttData(initialTasks, currentTasks);
+/** Read-only modal showing the full current row for each modified/new task,
+ *  with only the actually-changed cells highlighted. */
+export default function GanttModifiedChangesModal({ initialTasks, currentTasks, resources, onClose }) {
+  const { columns, rows } = getModifiedGanttData(initialTasks, currentTasks, resources);
 
   return (
     <div className="gmc-overlay" onClick={onClose}>
@@ -34,13 +35,16 @@ export default function GanttModifiedChangesModal({ initialTasks, currentTasks, 
                       {row.id}
                       {row.isNew && <span className="gmc-new-tag">NEW</span>}
                     </td>
-                    {columns.map(col => (
-                      <td key={col}>
-                        {row.values[col] !== undefined
-                          ? row.values[col]
-                          : <span className="gmc-empty-cell">—</span>}
-                      </td>
-                    ))}
+                    {columns.map(col => {
+                      const isChanged = row.changed.has(col);
+                      return (
+                        <td key={col} className={isChanged ? 'gmc-changed' : ''}>
+                          {row.values[col] !== undefined
+                            ? row.values[col]
+                            : <span className="gmc-empty-cell">—</span>}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
