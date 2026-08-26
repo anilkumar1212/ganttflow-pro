@@ -56,9 +56,11 @@ function isDateField(field, value) {
 function depToString(dep) {
   if (dep && typeof dep === 'object') {
     if ('predecessorId' in dep) {
+      const type = dep.type || 'FS';
       const lag = Number(dep.lag || 0);
       const lagStr = lag > 0 ? `+${lag}d` : lag < 0 ? `${lag}d` : '';
-      return `${dep.predecessorId}${dep.type || 'FS'}${lagStr}`;
+      const typeStr = type === 'FS' && lag === 0 ? '' : type;
+      return `${dep.predecessorId}${typeStr}${lagStr}`;
     }
     return JSON.stringify(dep);
   }
