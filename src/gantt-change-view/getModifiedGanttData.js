@@ -179,7 +179,6 @@ export function getModifiedGanttData(initialTasks, currentTasks, resources = [])
     allFields.forEach(field => {
       const currentValue = nowFields[field];
       values[field] = displayField(field, currentValue, resources);
-      columnSet.add(field);
 
       if (!before) {
         if (normalizeValue(field, currentValue) !== '') {
@@ -193,6 +192,12 @@ export function getModifiedGanttData(initialTasks, currentTasks, resources = [])
         changed.add(field);
         anyChanged = true;
       }
+    });
+
+    // Dynamic columns: only fields actually modified by at least one row.
+    // Task Name is always rendered as its own mandatory column.
+    changed.forEach(field => {
+      if (field !== 'name') columnSet.add(field);
     });
 
     if (!before || anyChanged) {

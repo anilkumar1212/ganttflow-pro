@@ -25,6 +25,7 @@ export default function GanttModifiedChangesModal({ initialTasks, currentTasks, 
               <thead>
                 <tr>
                   <th>Task ID</th>
+                  <th>Task Name</th>
                   {columns.map(col => <th key={col}>{fieldLabel(col)}</th>)}
                 </tr>
               </thead>
@@ -35,11 +36,14 @@ export default function GanttModifiedChangesModal({ initialTasks, currentTasks, 
                       {row.id}
                       {row.isNew && <span className="gmc-new-tag">NEW</span>}
                     </td>
+                    <td className={row.changed.has('name') ? 'gmc-changed' : ''}>
+                      {row.name ?? <span className="gmc-empty-cell">—</span>}
+                    </td>
                     {columns.map(col => {
                       const isChanged = row.changed.has(col);
                       return (
                         <td key={col} className={isChanged ? 'gmc-changed' : ''}>
-                          {row.values[col] !== undefined
+                          {isChanged && row.values[col] !== undefined
                             ? row.values[col]
                             : <span className="gmc-empty-cell">—</span>}
                         </td>
