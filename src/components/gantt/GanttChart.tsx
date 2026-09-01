@@ -14,6 +14,7 @@ import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
 import { GanttChangeActions } from '@/gantt-change-review';
 import { GanttModifiedChangesButton } from '@/gantt-change-view';
+import { GanttCrudButton } from '@/gantt-crud-view';
 
 
 const ROW_HEIGHT = 36;
