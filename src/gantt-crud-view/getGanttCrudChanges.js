@@ -213,7 +213,14 @@ export function getGanttCrudChanges(initialTasks, currentTasks, resources = []) 
     });
 
     return {
-      row: { id: task.id, name: task.name, values, changed, kind: options.kind },
+      row: {
+        id: task.id,
+        name: task.name,
+        values,
+        changed,
+        kind: options.kind,
+        hierarchy: resolveHierarchy(task, currentById),
+      },
       fields: nowFields,
       anyChanged,
     };
@@ -242,7 +249,14 @@ export function getGanttCrudChanges(initialTasks, currentTasks, resources = []) 
     const values = {};
     Object.keys(fields).forEach(f => { values[f] = displayField(f, fields[f], resources); });
     collect(fields);
-    deletedTasks.push({ id: task.id, name: task.name, values, changed: new Set(), kind: 'deleted' });
+    deletedTasks.push({
+      id: task.id,
+      name: task.name,
+      values,
+      changed: new Set(),
+      kind: 'deleted',
+      hierarchy: resolveHierarchy(task, initialById),
+    });
   });
 
   return { columns: sortFields([...columnSet]), newTasks, modifiedTasks, deletedTasks };
