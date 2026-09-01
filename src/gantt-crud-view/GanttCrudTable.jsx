@@ -14,6 +14,7 @@ export default function GanttCrudTable({ columns, rows, mode, emptyText }) {
             <th>Task ID</th>
             <th>Task Name</th>
             {columns.map(col => <th key={col}>{fieldLabel(col)}</th>)}
+            <th>Parent Hierarchy</th>
           </tr>
         </thead>
         <tbody>
@@ -32,6 +33,9 @@ export default function GanttCrudTable({ columns, rows, mode, emptyText }) {
                   </td>
                 );
               })}
+              <td className={mode === 'modified' && row.changed.has('parentId') ? 'gcv-changed' : ''}>
+                {row.hierarchy ? row.hierarchy : <span className="gcv-empty-cell">-</span>}
+              </td>
             </tr>
           ))}
         </tbody>
