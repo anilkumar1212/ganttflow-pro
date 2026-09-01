@@ -14,6 +14,7 @@ import { AIProjectPlan, convertPlanToTasks } from '@/lib/ai-plan';
 import { useToast } from '@/hooks/use-toast-simple';
 import { GanttChangeActions } from '@/gantt-change-review';
 import { GanttModifiedChangesButton } from '@/gantt-change-view';
+import { GanttCrudButton } from '@/gantt-crud-view';
 
 
 const ROW_HEIGHT = 36;
@@ -464,6 +465,7 @@ export function GanttChart() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 12px' }}>
         <GanttChangeActions tasks={tasks} />
         <GanttModifiedChangesButton tasks={tasks} resources={resources} />
+        <GanttCrudButton tasks={tasks} resources={resources} />
       </div>
 
       <GanttToolbar
