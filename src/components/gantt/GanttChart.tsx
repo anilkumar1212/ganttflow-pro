@@ -465,6 +465,7 @@ export function GanttChart() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 12px' }}>
         <GanttChangeActions tasks={tasks} />
         <GanttModifiedChangesButton tasks={tasks} resources={resources} />
+        <GanttCrudButton tasks={tasks} resources={resources} />
       </div>
 
       <GanttToolbar
