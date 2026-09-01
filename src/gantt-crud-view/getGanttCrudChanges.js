@@ -144,6 +144,29 @@ export function fieldLabel(field) {
 }
 
 /**
+ * Resolve the full parent chain for a task, top-level parent first.
+ * Guards against missing parents and circular references.
+ */
+export function resolveHierarchy(task, byId) {
+  if (!task || !byId) return '';
+  const chain = [];
+  const seen = new Set([task.id]);
+  let cursor = task;
+  let guard = 0;
+  while (cursor && cursor.parentId !== undefined && cursor.parentId !== null && cursor.parentId !== '') {
+    if (guard++ > 100) break; // safety net
+    const pid = cursor.parentId;
+    if (seen.has(pid)) break; // circular reference
+    seen.add(pid);
+    const parent = byId.get(pid) || byId.get(String(pid)) || byId.get(Number(pid));
+    if (!parent) break; // missing parent
+    chain.unshift(parent.name != null ? String(parent.name) : String(pid));
+    cursor = parent;
+  }
+  return chain.join(' --> ');
+}
+
+/**
  * Classify tasks into new / modified / deleted buckets by stable id.
  *
  * @param {Array} initialTasks baseline snapshot
