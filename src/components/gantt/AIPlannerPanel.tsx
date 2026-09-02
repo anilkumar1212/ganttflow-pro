@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { Sparkles, X, Upload, Loader2, CheckCircle2, Circle, FileText, AlertTriangle, Info, Users, Milestone, Link2, Clock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { extractTextFromFile } from "@/lib/document-parser";
 import { AIProjectPlan, totalMilestones, totalDependencies, estimateTotalDurationDays } from "@/lib/ai-plan";
 import { useToast } from "@/hooks/use-toast-simple";
@@ -61,11 +61,13 @@ export function AIPlannerPanel({ open, onClose, onLoadPlan }: Props) {
       setStep("analyze", "done");
       setStep("wbs", "active");
 
-      const { data, error: fnErr } = await supabase.functions.invoke("ai-plan-project", {
-        body: { documentText: text, prompt },
+      const response = await fetch("/api/public/ai-plan-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentText: text, prompt }),
       });
-
-      if (fnErr) throw new Error(fnErr.message || "AI request failed");
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "AI request failed");
       if (data?.error) throw new Error(data.error);
       const generatedPlan: AIProjectPlan = data.plan;
       if (!generatedPlan?.tasks?.length) throw new Error("AI returned an empty plan.");
