@@ -156,6 +156,7 @@ export function TimelineChart({
     start: Date | null | undefined,
     end: Date | null | undefined,
     barY: number,
+    barHeight: number,
     kind: 'baseline' | 'actual',
   ) => {
     if (!isValidDate(start) || !isValidDate(end) || end < start) return null;
@@ -166,7 +167,7 @@ export function TimelineChart({
     if (start.getTime() === end.getTime()) {
       // Milestone-style compact marker for zero-duration tracking dates
       const cx = bx + 3;
-      const cy = barY + 2.5;
+      const cy = barY + barHeight / 2;
       return (
         <polygon
           key={`${kind}-${task.id}`}
@@ -184,7 +185,7 @@ export function TimelineChart({
     return (
       <rect
         key={`${kind}-${task.id}`}
-        x={bx} y={barY} width={bw} height={5} rx={2}
+        x={bx} y={barY} width={bw} height={barHeight} rx={2}
         fill={fill}
         style={{ cursor: 'default' }}
         onMouseEnter={e => { if (!dragging) setTooltip({ x: e.clientX, y: e.clientY, task, kind }); }}
