@@ -156,6 +156,7 @@ export function TimelineChart({
     start: Date | null | undefined,
     end: Date | null | undefined,
     barY: number,
+    barHeight: number,
     kind: 'baseline' | 'actual',
   ) => {
     if (!isValidDate(start) || !isValidDate(end) || end < start) return null;
@@ -166,7 +167,7 @@ export function TimelineChart({
     if (start.getTime() === end.getTime()) {
       // Milestone-style compact marker for zero-duration tracking dates
       const cx = bx + 3;
-      const cy = barY + 2.5;
+      const cy = barY + barHeight / 2;
       return (
         <polygon
           key={`${kind}-${task.id}`}
@@ -184,7 +185,7 @@ export function TimelineChart({
     return (
       <rect
         key={`${kind}-${task.id}`}
-        x={bx} y={barY} width={bw} height={5} rx={2}
+        x={bx} y={barY} width={bw} height={barHeight} rx={2}
         fill={fill}
         style={{ cursor: 'default' }}
         onMouseEnter={e => { if (!dragging) setTooltip({ x: e.clientX, y: e.clientY, task, kind }); }}
@@ -276,10 +277,11 @@ export function TimelineChart({
             const width = Math.max(dateToX(task.end) - x, dayWidth * 0.5);
             const y = idx * rowHeight;
             // Three stacked slots per row: Planned (top, primary), Baseline (middle), Actual (bottom)
-            const barHeight = task.hasChildren ? 6 : 12;
-            const barY = y + 3;
-            const baselineY = y + rowHeight - 14;
-            const actualY = y + rowHeight - 7;
+            const segmentHeight = rowHeight / 3;
+            const barHeight = segmentHeight;
+            const barY = y;
+            const baselineY = y + segmentHeight;
+            const actualY = y + segmentHeight * 2;
             const isSelected = selectedTaskIds.has(task.id);
             const cpm = cpmResults.get(task.id);
             const isCritical = showCriticalPath && (cpm?.isCritical ?? false);
@@ -288,12 +290,12 @@ export function TimelineChart({
               return (
                 <g key={task.id} onClick={() => onSelectTask(task.id)} style={{ cursor: 'pointer' }}>
                   <rect x={x} y={barY} width={width} height={barHeight} rx={1} fill="var(--gantt-bar-parent)" opacity={0.8} />
-                  <rect x={x} y={barY} width={3} height={barHeight + 4} fill="var(--gantt-bar-parent)" />
-                  <rect x={x + width - 3} y={barY} width={3} height={barHeight + 4} fill="var(--gantt-bar-parent)" />
+                  <rect x={x} y={barY} width={3} height={barHeight} fill="var(--gantt-bar-parent)" />
+                  <rect x={x + width - 3} y={barY} width={3} height={barHeight} fill="var(--gantt-bar-parent)" />
                   <rect x={x} y={barY} width={width * (task.progress / 100)} height={barHeight} rx={1} fill="var(--gantt-bar-progress)" opacity={0.5} />
                   {isSelected && <rect x={x - 1} y={barY - 1} width={width + 2} height={barHeight + 2} rx={2} fill="none" stroke="var(--ring)" strokeWidth={2} />}
-                  {renderTrackingBar(task, task.baselineStart, task.baselineEnd, baselineY, 'baseline')}
-                  {renderTrackingBar(task, task.actualStart, task.actualEnd, actualY, 'actual')}
+                  {renderTrackingBar(task, task.baselineStart, task.baselineEnd, baselineY, barHeight, 'baseline')}
+                  {renderTrackingBar(task, task.actualStart, task.actualEnd, actualY, barHeight, 'actual')}
                 </g>
               );
             }
@@ -366,8 +368,8 @@ export function TimelineChart({
                 {isSelected && (
                   <rect x={x - 1} y={barY - 1} width={width + 2} height={barHeight + 2} rx={4} fill="none" stroke="var(--ring)" strokeWidth={2} />
                 )}
-                {renderTrackingBar(task, task.baselineStart, task.baselineEnd, baselineY, 'baseline')}
-                {renderTrackingBar(task, task.actualStart, task.actualEnd, actualY, 'actual')}
+                {renderTrackingBar(task, task.baselineStart, task.baselineEnd, baselineY, barHeight, 'baseline')}
+                {renderTrackingBar(task, task.actualStart, task.actualEnd, actualY, barHeight, 'actual')}
               </g>
             );
           })}
