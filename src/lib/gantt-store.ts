@@ -186,8 +186,8 @@ export function createSampleData(): { tasks: GanttTask[]; resources: Resource[] 
 
   const tasks: GanttTask[] = [
     { id: 1, name: 'Project Planning', start: today, end: addDays(today, 15), progress: 65, resources: [], dependencies: [], parentId: null, expanded: true, level: 0 },
-    { id: 2, name: 'Requirements Gathering', start: today, end: addDays(today, 5), progress: 100, resources: ['r1'], dependencies: [], parentId: 1, expanded: false, level: 1, baselineStart: addDays(today, -2), baselineEnd: addDays(today, 3), actualStart: today, actualEnd: addDays(today, 4) },
-    { id: 3, name: 'Architecture Design', start: addDays(today, 5), end: addDays(today, 10), progress: 80, resources: ['r1', 'r2'], dependencies: [{ predecessorId: 2, type: 'FS', lag: 0 }], parentId: 1, expanded: false, level: 1, baselineStart: addDays(today, 4), baselineEnd: addDays(today, 9), actualStart: addDays(today, 6), actualEnd: addDays(today, 9) },
+    { id: 2, name: 'Requirements Gathering', start: today, end: addDays(today, 5), progress: 100, resources: ['r1'], dependencies: [], parentId: 1, expanded: false, level: 1 },
+    { id: 3, name: 'Architecture Design', start: addDays(today, 5), end: addDays(today, 10), progress: 80, resources: ['r1', 'r2'], dependencies: [{ predecessorId: 2, type: 'FS', lag: 0 }], parentId: 1, expanded: false, level: 1 },
     { id: 4, name: 'Technical Review', start: addDays(today, 10), end: addDays(today, 15), progress: 0, resources: ['r3'], dependencies: [{ predecessorId: 3, type: 'FS', lag: 0 }], parentId: 1, expanded: false, level: 1 },
 
     { id: 5, name: 'Development Phase', start: addDays(today, 15), end: addDays(today, 45), progress: 30, resources: [], dependencies: [], parentId: null, expanded: true, level: 0 },
